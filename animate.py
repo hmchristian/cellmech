@@ -5,7 +5,7 @@ import subprocess, os, sys
 
 
 def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
-               figsize=(1000, 1000), cmap='viridis', vmaxlinks=5, vmaxcells=5, cbar=False, upto=-1):
+               figsize=(1000, 1000), upto=-1):
     """
 
     :param c: numpy array of shape (ncells, 3) containing positions of cells
@@ -36,14 +36,12 @@ def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(
 
     # initialize cell visualization
     cells = mlab.points3d(x[:upto], y[:upto], z[:upto], fc[:upto], scale_factor=1, opacity=0.5, resolution=16,
-                          scale_mode='none', vmin=0., colormap=cmap, vmax=vmaxcells)
+                          scale_mode='none', vmin=0., color=(0, 0, 0))
 
     # initialize link visualization
-    links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, scalars=fl, mode='2ddash', line_width=4., scale_mode='vector',
-                          scale_factor=1, colormap=cmap, vmin=0., vmax=vmaxlinks)
-    links.glyph.color_mode = "color_by_scalar"
-    if cbar:
-        mlab.scalarbar(links, nb_labels=2, title='Force on link')
+    links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, mode='2ddash', line_width=2., scale_mode='vector',
+                          scale_factor=1, color=(0, 0, 0))
+
     return cells, links
 
 
@@ -67,8 +65,7 @@ def pack(A, B):
 
 @mlab.animate(delay=70)
 def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/", recordname="ani",
-                   figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), figsize=(1000, 1000),
-                   cmap='viridis', cbar=False, showsubs=False):
+                   figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), figsize=(1000, 1000), showsubs=False):
     """
     Create animation of simulation results previously created with cell.py
     :param Simdata: Tuple containing items:
@@ -146,13 +143,8 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     # get absolute value of force on links
     linkForces = [scipy.linalg.norm(lFstep, axis=1) for lFstep in linkForces]
 
-    # get maximum value of node and link forces to tune the color scale
-    vmaxcells = np.max(scipy.linalg.norm(nodeForces, axis=2))
-    vmaxlinks = max([np.max(timestep) for timestep in linkForces])
-
     # show first timestep of animation
-    cells, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0], fig, cmap=cmap, cbar=cbar,
-                              vmaxcells=vmaxcells, vmaxlinks=vmaxlinks, upto=upto)
+    cells, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0], fig, upto=upto)
 
     text = mlab.title('0.0', height=.9)  # show current time
 
@@ -162,7 +154,7 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
         try:
             os.mkdir(out_path)
         except OSError:
-            print "Too many levels in recorddir missing. Sorry!"
+            print("Too many levels in recorddir missing. Sorry!")
             sys.exit()
     out_path = os.path.abspath(out_path)
     prefix = recordname
@@ -208,7 +200,7 @@ def record_cleanup(out_path="./movie", prefix="ani", fps=10):
 
     ffmpeg_fname = os.path.join(out_path, '{}_%0{}d{}'.format(prefix, padding, ext))
     cmd = 'ffmpeg -f image2 -r {} -i {} -q:v 1 -vcodec mpeg4 -y {}/{}.mp4'.format(fps, ffmpeg_fname, out_path, prefix)
-    print cmd
+    print(cmd)
     subprocess.check_output(['bash', '-c', cmd])
 
     # Remove temp image files with extension
@@ -224,17 +216,17 @@ def fetchdata(fetchdir, toskip=1):
         on node positions, links, forces on nodes, forces on links and time steps and c) if substrate exists:
         positions of substrate nodes, substrate links, forces on substrate nodes, forces on substrate links
     """
-    configs = np.load(fetchdir + "/nodesr.npy")[::toskip]
-    links = np.load(fetchdir + "/links.npy")[::toskip]
-    nodeforces = np.load(fetchdir + "/nodesf.npy")[::toskip]
-    linkforces = np.load(fetchdir + "/linksf.npy")[::toskip]
-    ts = np.load(fetchdir + "/ts.npy")[::toskip]
+    configs = np.load(fetchdir + "/nodesr.npy", allow_pickle=True, encoding='bytes')[::toskip]
+    links = np.load(fetchdir + "/links.npy", allow_pickle=True, encoding='bytes')[::toskip]
+    nodeforces = np.load(fetchdir + "/nodesf.npy", allow_pickle=True, encoding='bytes')[::toskip]
+    linkforces = np.load(fetchdir + "/linksf.npy", allow_pickle=True, encoding='bytes')[::toskip]
+    ts = np.load(fetchdir + "/ts.npy", allow_pickle=True, encoding='bytes')[::toskip]
 
-    try:     # try to include substrate details if they exists
-        subs = np.load(fetchdir + "/subsnodesr.npy")[::toskip]
-        subslinks = np.load(fetchdir + "/subslinks.npy")[::toskip]
-        subsnodeforces = np.load(fetchdir + "/subsnodesf.npy")[::toskip]
-        subslinkforces = np.load(fetchdir + "/subslinksf.npy")[::toskip]
+    try:  # try to include substrate details if they exists
+        subs = np.load(fetchdir + "/subsnodesr.npy", allow_pickle=True, encoding='bytes')[::toskip]
+        subslinks = np.load(fetchdir + "/subslinks.npy", allow_pickle=True, encoding='bytes')[::toskip]
+        subsnodeforces = np.load(fetchdir + "/subsnodesf.npy", allow_pickle=True, encoding='bytes')[::toskip]
+        subslinkforces = np.load(fetchdir + "/subslinksf.npy", allow_pickle=True, encoding='bytes')[::toskip]
 
         return True, (configs, links, nodeforces, linkforces, ts), (subs, subslinks, subsnodeforces, subslinkforces)
 
@@ -248,14 +240,14 @@ if __name__ == '__main__':
 
     ####################
 
-    skip = 1                # only use every skip-th simulation step for animation
-    datadir = "res"         # location of simulation results
-    showsubs = False        # whether or not to visualize substrate nodes
+    skip = 1  # only use every skip-th simulation step for animation
+    datadir = "res"  # location of simulation results
+    showsubs = False  # whether or not to visualize substrate nodes
 
-    record = False          # whether or not to create and save a movie in oppose to only showing the animation
-    recorddir = "./movie"   # directory for saving the movie
-    recordname = "ani"      # name of the movie
-    fps = 10                # frames per second of the movie
+    record = False  # whether or not to create and save a movie in oppose to only showing the animation
+    recorddir = "./movie"  # directory for saving the movie
+    recordname = "ani"  # name of the movie
+    fps = 10  # frames per second of the movie
 
     ####################
 
