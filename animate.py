@@ -29,10 +29,10 @@ def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(
         fig = mlab.figure(figureindex, bgcolor=bgcolor, fgcolor=fgcolor, size=figsize)
     else:
         fig = figure
-    x, y, z = c.T  # extract all x, y and z positions in individual arrays
-    xl, yl, zl = c[l[..., 0]].T  # extract x, y, and z positions of one end for each link
+    x, y, z = c.T                                    # extract all x, y and z positions in individual arrays
+    xl, yl, zl = c[l[..., 0]].T                      # extract x, y, and z positions of one end for each link
     rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T  # extract x, y and z components of vectors describing links
-    fc = scipy.linalg.norm(nF, axis=1)  # get absolute value of force on nodes
+    fc = scipy.linalg.norm(nF, axis=1)               # get absolute value of force on nodes
 
     # initialize cell visualization
     cells = mlab.points3d(x[:upto], y[:upto], z[:upto], fc[:upto], scale_factor=1, opacity=0.5, resolution=16,
@@ -69,30 +69,26 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     """
     Create animation of simulation results previously created with cell.py
     :param Simdata: Tuple containing items:
-        Configs: numpy array of shape (timesteps, ncells, 3) containing positions of tissue cells
-        Links: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 2) containing indices of tissue
-            cells connected by links
-        nodeForces: numpy array of shape (timesteps, ncells, 3) containing forces on tissue cells
-        linkForces: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 3) containing forces on
-            links connecting tissue cells
-        ts: numpy array of shape (timesteps,) containing times of the system snapshots
+                Configs: numpy array of shape (timesteps, ncells, 3) containing positions of tissue cells
+                Links: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 2) containing indices of tissue cells connected by links
+                nodeForces: numpy array of shape (timesteps, ncells, 3) containing forces on tissue cells
+                linkForces: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 3) containing forces on links connecting tissue cells
+                ts: numpy array of shape (timesteps,) containing times of the system snapshots
     :param SubsSimdata: None if simulations didn't include substrate, or Tuple containing items:
-        Subs: numpy array of shape (timesteps, ncells, 3) containing positions of substrate cells
-        SubsLinks: list of length (timesteps,) containing numpy arrays of shape (nlinks, 2) containing indices of
-            tissue and substrate cells connected by links
-        subsnodeForces: numpy array of shape (timesteps, ncells, 3) containing forces on substrate cells
-        subslinkForces: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 3) containing forces
-            on links connecting tissue with substrate cells
+                Subs: numpy array of shape (timesteps, ncells, 3) containing positions of substrate cells
+                SubsLinks: list of length (timesteps,) containing numpy arrays of shape (nlinks, 2) containing indices of
+                    tissue and substrate cells connected by links
+                subsnodeForces: numpy array of shape (timesteps, ncells, 3) containing forces on substrate cells
+                subslinkForces: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 3) containing forces
+                    on links connecting tissue with substrate cells
     :param record: boolean, whether or not to create and save a movie in oppose to only showing the animation.
-        If set to true: call record_cleanup() after completing mlab.show()
+                If set to true: call record_cleanup() after completing mlab.show()
     :param recorddir: string, directory where the images are saved and the movie should be save
     :param recordname: string, prefix of the images and the movie
     :param figureindex: n of figure
     :param bgcolor: tuple of shape (3,) indicating foreground color
     :param fgcolor: tuple of shape (3,) indicating background color
     :param figsize: tuple of shape (2,) indicating figure size
-    :param cmap: color map visualization
-    :param cbar: color bar
     :param showsubs: boolean, whether or not to explicitly visualize substrate cells
     :return:
     """
@@ -165,10 +161,10 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     # create animation
     while True:
         for (c, l, nF, fl, t) in zip(Configs, Links, nodeForces, linkForces, ts):
-            x, y, z = c.T  # extract all x, y and z positions in individual arrays
-            xl, yl, zl = c[l[..., 0]].T  # extract x, y, and z positions of one end for each link
-            rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T  # extract x, y and z components of vectors describing links
-            fc = scipy.linalg.norm(nF, axis=1)  # get absolute value of force on nodes
+            x, y, z = c.T                                       # extract all x, y and z positions in individual arrays
+            xl, yl, zl = c[l[..., 0]].T                         # extract x, y, and z positions of one end for each link
+            rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T     # extract x, y and z components of vectors describing links
+            fc = scipy.linalg.norm(nF, axis=1)                  # get absolute value of force on nodes
 
             # update data
             cells.mlab_source.set(x=x[:upto], y=y[:upto], z=z[:upto], scalars=fc[:upto])
@@ -240,14 +236,14 @@ if __name__ == '__main__':
 
     ####################
 
-    skip = 1  # only use every skip-th simulation step for animation
-    datadir = "res"  # location of simulation results
-    showsubs = False  # whether or not to visualize substrate nodes
+    skip = 1                    # only use every skip-th simulation step for animation
+    datadir = "res"             # location of simulation results
+    showsubs = False            # whether or not to visualize substrate nodes
 
-    record = False  # whether or not to create and save a movie in oppose to only showing the animation
-    recorddir = "./movie"  # directory for saving the movie
-    recordname = "ani"  # name of the movie
-    fps = 10  # frames per second of the movie
+    record = False              # whether or not to create and save a movie in oppose to only showing the animation
+    recorddir = "./movie"       # directory for saving the movie
+    recordname = "ani"          # name of the movie
+    fps = 10                    # frames per second of the movie
 
     ####################
 

@@ -306,45 +306,44 @@ class NodeConfiguration:
         self.N_inv = 1. / self.N
 
         # description of nodes
-        self.nodesX = np.zeros((self.N, 3))  # r of nodes
-        self.nodesPhi = np.zeros((self.N, 3))  # phi of nodes
-        self.Fnode = np.zeros((self.N, 3))  # total force on node
-        self.Mnode = np.zeros((self.N, 3))  # total torsion on node
+        self.nodesX = np.zeros((self.N, 3))                     # r of nodes
+        self.nodesPhi = np.zeros((self.N, 3))                   # phi of nodes
+        self.Fnode = np.zeros((self.N, 3))                      # total force on node
+        self.Mnode = np.zeros((self.N, 3))                      # total torsion on node
         self.isF0 = isF0
-        self.F0 = np.zeros((self.N, 3))  # external force on node
+        self.F0 = np.zeros((self.N, 3))                         # external force on node
         self.isanchor = isanchor
-        self.X0 = np.zeros((self.N, 3))  # node anchor, must be set if needed!
-        self.knode = np.zeros((self.N,))  # spring constant of node to anchor point, defaults to 0
-        self.nodetype = np.zeros(
-            (self.N,))  # cell type of either high or low contractility for 							  # F_contr specification
-        self.F_contrval = np.zeros((self.N,))
+        self.X0 = np.zeros((self.N, 3))                         # node anchor, must be set if needed!
+        self.knode = np.zeros((self.N,))                        # spring constant of node to anchor point, defaults to 0
+        self.nodetype = np.zeros((self.N,))                     # cell type of either low or high contractility (0 or 1)
+        self.F_contrval = np.zeros((self.N,))                   # F_contr for link given the cell types involved in the link
 
         self.gaps = np.zeros((num_subs, 3))
 
         # description of links
         # islink[i, j] is True if nodes i and j are connected via link
-        self.islink = np.full((self.N, self.N), False)  # Describes link at node [0] leading to node [1]
+        self.islink = np.full((self.N, self.N), False)          # Describes link at node [0] leading to node [1]
 
-        self.e = np.zeros((self.N, self.N, 3))  # direction connecting nodes (a.k.a. "actual direction")
-        self.d = np.zeros((self.N, self.N))  # distance between nodes (a.k.a. "actual distance")
-        self.d0_0 = d0_0  # global equilibrium link length
+        self.e = np.zeros((self.N, self.N, 3))                  # direction connecting nodes (a.k.a. "actual direction")
+        self.d = np.zeros((self.N, self.N))                     # distance between nodes (a.k.a. "actual distance")
+        self.d0_0 = d0_0                                        # global equilibrium link length
         if plasticity is None:
-            self.k = np.zeros((self.N, self.N))  # spring constant between nodes
-            self.bend = np.zeros((self.N, self.N))  # bending rigidity
-            self.twist = np.zeros((self.N, self.N))  # torsion spring constant
+            self.k = np.zeros((self.N, self.N))                 # spring constant between nodes
+            self.bend = np.zeros((self.N, self.N))              # bending rigidity
+            self.twist = np.zeros((self.N, self.N))             # torsion spring constant
             self.saveram = False
         else:
             self.bend = plasticity[0]
             self.twist = plasticity[1]
             self.k = plasticity[2]
             self.saveram = True
-        self.d0 = np.zeros((self.N, self.N))  # equilibrium distance between nodes,
-        self.t = np.zeros((self.N, self.N, 3))  # tangent vector of link at node (a.k.a. "preferred direction")
-        self.norm = np.zeros((self.N, self.N, 3))  # normal vector of link at node
-        self.Mlink = np.zeros((self.N, self.N, 3))  # Torsion from link on node
-        self.Flink = np.zeros((self.N, self.N, 3))  # Force from link on node
-        self.Flink_tens = np.zeros((self.N, self.N))  # Tensile component of Flink
-        self.F_contr = F_contr  # Target values for contractile force
+        self.d0 = np.zeros((self.N, self.N))                    # equilibrium distance between nodes,
+        self.t = np.zeros((self.N, self.N, 3))                  # tangent vector of link at node (a.k.a. "preferred direction")
+        self.norm = np.zeros((self.N, self.N, 3))               # normal vector of link at node
+        self.Mlink = np.zeros((self.N, self.N, 3))              # Torsion from link on node
+        self.Flink = np.zeros((self.N, self.N, 3))              # Force from link on node
+        self.Flink_tens = np.zeros((self.N, self.N))            # Tensile component of Flink
+        self.F_contr = F_contr                                  # Target values for contractile force
 
         self.p_add = p_add
         self.p_del = p_del
@@ -393,7 +392,7 @@ class NodeConfiguration:
         """
         Set each node as either a high or low contractility given a specified probability
         :param N: number of cells (nodes) in simulation
-        :param prob: tuple of the probability of a cell being type 0 (low contractility) or type 1 (high 		 contractility)
+        :param prob: tuple of the probability of a cell being type 0 (low contractility) or type 1 (high contractility)
         :return: nodetype: numpy array of shape (N,1) with 0s and 1s specifying cell type to set F_contr values
         """
         self.nodetype = random.choice([0, 1], N, p=p)
@@ -629,7 +628,7 @@ class NodeConfiguration:
         """
         Update the equilibrium link length so that each link maintains a constant force
         :param dt: float, the time taken for the last plasticity step
-        :param force: boolean, if False: update done as suggested in czirok2014cell. if True: force-dependent   		 component included.
+        :param force: boolean, if False: update done as suggested in czirok2014cell. if True: force-dependent component included.
         :return:
         """
         nodeinds = np.where(self.islink == True)
@@ -681,41 +680,40 @@ class SubsConfiguration:
         self.Nsubs = num_subs
 
         # description of nodes
-        self.nodesX = np.zeros((self.Nsubs, 3))  # r of subs nodes
-        self.nodesPhi = np.zeros((self.Nsubs, 3))  # phi of subs nodes
-        self.Fnode = np.zeros((self.Nsubs, 3))  # force exerted on subs nodes
-        self.Mnode = np.zeros((self.Nsubs, 3))  # torque exerted on subs nodes
-        self.nodetype = np.zeros(
-            (self.N,))  # cell type of either high or low contractility for 							  # F_contr specification
-        self.F_contrval = np.zeros((self.N,))
+        self.nodesX = np.zeros((self.Nsubs, 3))                     # r of subs nodes
+        self.nodesPhi = np.zeros((self.Nsubs, 3))                   # phi of subs nodes
+        self.Fnode = np.zeros((self.Nsubs, 3))                      # force exerted on subs nodes
+        self.Mnode = np.zeros((self.Nsubs, 3))                      # torque exerted on subs nodes
+        self.nodetype = np.zeros((self.N,))                         # cell type of either low or high contractility
+        self.F_contrval = np.zeros((self.N,))                       # F_contr for link given the cell types involved in the link
 
         # description of links
         # islink[i, j] is True if nodes i and j are connected via link
-        self.islink = np.full((self.N, self.Nsubs), False)  # Describes link at cell node [0] leading to subs node [1]
+        self.islink = np.full((self.N, self.Nsubs), False)          # Describes link at cell node [0] leading to subs node [1]
 
-        self.e = np.zeros((self.N, self.Nsubs, 3))  # direction from cell node to subs node
-        self.d = np.zeros((self.N, self.Nsubs))  # distance between nodes (a.k.a. "actual distance")
+        self.e = np.zeros((self.N, self.Nsubs, 3))                  # direction from cell node to subs node
+        self.d = np.zeros((self.N, self.Nsubs))                     # distance between nodes (a.k.a. "actual distance")
         if plasticity is None:
-            self.k = np.zeros((self.N, self.Nsubs))  # spring constant between nodes
-            self.bend = np.zeros((self.N, self.Nsubs))  # bending rigidity
-            self.twist = np.zeros((self.N, self.Nsubs))  # torsion spring constant
+            self.k = np.zeros((self.N, self.Nsubs))                 # spring constant between nodes
+            self.bend = np.zeros((self.N, self.Nsubs))              # bending rigidity
+            self.twist = np.zeros((self.N, self.Nsubs))             # torsion spring constant
             self.saveram = False
         else:
             self.bend = plasticity[0]
             self.twist = plasticity[1]
             self.k = plasticity[2]
             self.saveram = True
-        self.d0 = np.zeros((self.N, self.Nsubs))  # equilibrium distance between nodes
-        self.d0_0 = d0_0  # global target equilibrium link length
-        self.tcell = np.zeros((self.N, self.Nsubs, 3))  # tangent vector of link at cell node
-        self.tsubs = np.zeros((self.N, self.Nsubs, 3))  # tangent vector of link at subs node
-        self.normcell = np.zeros((self.N, self.Nsubs, 3))  # normal vector of link at cell node
-        self.normsubs = np.zeros((self.N, self.Nsubs, 3))  # normal vector of link at subs node
-        self.Mcelllink = np.zeros((self.N, self.Nsubs, 3))  # Torsion from link on cell node
-        self.Msubslink = np.zeros((self.N, self.Nsubs, 3))  # Torsion from link on subs node
-        self.Flink = np.zeros((self.N, self.Nsubs, 3))  # Force from link on cell node
-        self.Flink_tens = np.zeros((self.N, self.Nsubs))  # Tensile component of Flink
-        self.F_contr = F_contr  # target value for contractile force
+        self.d0 = np.zeros((self.N, self.Nsubs))                    # equilibrium distance between nodes
+        self.d0_0 = d0_0                                            # global target equilibrium link length
+        self.tcell = np.zeros((self.N, self.Nsubs, 3))              # tangent vector of link at cell node
+        self.tsubs = np.zeros((self.N, self.Nsubs, 3))              # tangent vector of link at subs node
+        self.normcell = np.zeros((self.N, self.Nsubs, 3))           # normal vector of link at cell node
+        self.normsubs = np.zeros((self.N, self.Nsubs, 3))           # normal vector of link at subs node
+        self.Mcelllink = np.zeros((self.N, self.Nsubs, 3))          # Torsion from link on cell node
+        self.Msubslink = np.zeros((self.N, self.Nsubs, 3))          # Torsion from link on subs node
+        self.Flink = np.zeros((self.N, self.Nsubs, 3))              # Force from link on cell node
+        self.Flink_tens = np.zeros((self.N, self.Nsubs))            # Tensile component of Flink
+        self.F_contr = F_contr                                      # target value for contractile force
 
         self.p_add = p_add
         self.p_del = p_del
@@ -1663,11 +1661,12 @@ class CellMech:
         """
         Clean up temporary directories, combine temporary .npy files into one .npy file each
         :param savedir: string, name of directory to save in (based on current working directory)
-        :param savenodes_r: boolean, whether node positions where saved
-        :param savelinks: boolean, whether links where saved
-        :param savenodes_f: boolean, whether forces on nodes where saved
-        :param savelinks_f: boolean, whether forces on links where saved
-        :param savet: boolean, whether timesteps where saved
+        :param savenodetype: boolean, whether node types were saved
+        :param savenodes_r: boolean, whether node positions were saved
+        :param savelinks: boolean, whether links were saved
+        :param savenodes_f: boolean, whether forces on nodes were saved
+        :param savelinks_f: boolean, whether forces on links were saved
+        :param savet: boolean, whether timesteps were saved
         :return:
         """
         if savenodetype:
