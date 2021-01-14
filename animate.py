@@ -4,6 +4,12 @@ import numpy as np
 import subprocess, os, sys
 
 
+
+# modify the default parameters of np.load to allow pickling
+np_load_old = np.load
+np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+
+
 def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
                figsize=(1000, 1000), cmap='viridis', vmaxlinks=5, vmaxcells=5, cbar=False, upto=-1):
     """
@@ -63,7 +69,6 @@ def pack(A, B):
         return C
     except TypeError:
         return A
-
 
 @mlab.animate(delay=70)
 def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/", recordname="ani",
@@ -162,7 +167,7 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
         try:
             os.mkdir(out_path)
         except OSError:
-            print "Too many levels in recorddir missing. Sorry!"
+            print("Too many levels in recorddir missing. Sorry!")
             sys.exit()
     out_path = os.path.abspath(out_path)
     prefix = recordname
@@ -208,7 +213,7 @@ def record_cleanup(out_path="./movie", prefix="ani", fps=10):
 
     ffmpeg_fname = os.path.join(out_path, '{}_%0{}d{}'.format(prefix, padding, ext))
     cmd = 'ffmpeg -f image2 -r {} -i {} -q:v 1 -vcodec mpeg4 -y {}/{}.mp4'.format(fps, ffmpeg_fname, out_path, prefix)
-    print cmd
+    print(cmd)
     subprocess.check_output(['bash', '-c', cmd])
 
     # Remove temp image files with extension

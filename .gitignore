@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# don't track res or .idea files
+/res
+/.idea
+
 # C extensions
 *.so
 
