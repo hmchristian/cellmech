@@ -54,8 +54,8 @@ if __name__ == '__main__':
     config = CellMech(N, num_subs=Nsubs, dt=dt, nmax=nmax, qmin=qmin, d0_0=d0_0, p_add=p_add, p_del=p_del,
                       d0max=d0max, dims=dims, issubs=True)
 
-    # initialize random positions for tissue cells in square
 
+    # initialize random positions for tissue cells in square
     for ni in range(N):
         while True:
             R1 = generatePoint(Lmax)
@@ -69,8 +69,8 @@ if __name__ == '__main__':
                 break
         config.mynodes.nodesX[ni] = R1
 
-    # initialize random positions of substrate tissue
 
+    # initialize random positions of substrate tissue
     for ni in range(Nsubs):
         while True:
             R1 = generatePoint(Lsubs)
@@ -86,7 +86,6 @@ if __name__ == '__main__':
         config.mysubs.nodesX[ni] = R1
 
     # add links between cells adjacent in Voronoi tesselation and closer than d0min
-
     allnodes = np.concatenate((config.mynodes.nodesX, config.mysubs.nodesX), axis=0)
 
     for i, j in VoronoiNeighbors(allnodes, vodims=3):
