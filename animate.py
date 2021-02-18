@@ -4,6 +4,12 @@ import numpy as np
 import subprocess, os, sys
 
 
+
+# modify the default parameters of np.load to allow pickling
+np_load_old = np.load
+np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+
+
 def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
                figsize=(1000, 1000), upto=-1):
     """
@@ -61,7 +67,6 @@ def pack(A, B):
         return C
     except TypeError:
         return A
-
 
 @mlab.animate(delay=70)
 def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/", recordname="ani",
