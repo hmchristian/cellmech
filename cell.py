@@ -99,8 +99,8 @@ def getRotMatArray(Phis):
     a = np.cos(Thetas / 2)
     b, c, d = np.transpose(Phis) * np.sin(Thetas / 2)
     RotMat = np.array([[a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
-                      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
-                      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
+                       [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
+                       [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
     return np.transpose(RotMat, axes=(2, 0, 1))
 
 
@@ -115,8 +115,8 @@ def getRotMat(Phis):
     a = np.cos(Theta / 2)  # filter for division by 0
     b, c, d = Axis * np.sin(Theta / 2)
     return np.array([[a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
-                    [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
-                    [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
+                     [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
+                     [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
 
 
 def VoronoiNeighbors(positions, vodims=2):
@@ -144,7 +144,8 @@ def VoronoiNeighbors(positions, vodims=2):
 
 
 def relaunch_CellMech(savedir, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.001, d0_0=1., p_add=1., p_del=0.2,
-                      p_add_subs=None, p_del_subs=None, c1=0.05, c2=0.1, c3=0.2, chkx=False, d0max=2., dims=3, F_contr=1.,
+                      p_add_subs=None, p_del_subs=None, c1=0.05, c2=0.1, c3=0.2, chkx=False, d0max=2., dims=3,
+                      F_contr=[1, 40],
                       isF0=False, isanchor=False, issubs=False, force_contr=True):
     """
     Create an instance of CellMech and set it up so that a simulation can be continued from where it was previously
@@ -194,6 +195,9 @@ def relaunch_CellMech(savedir, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.
     c.snaptimes = c.saveonesnap("ts", savedir, c.snaptimes)
     del sts
 
+    # load data on cell type, create sub-folder in savedir for cell type information
+    snodetype = np.load(savedir + "/nodetype.npy")
+
     # load data on tissue cell positions, save last positions,
     # create sub-folder in savedir for snapshots with all previous data saved as number 0
     snodesr = np.load(savedir + "/nodesr.npy")
@@ -229,6 +233,9 @@ def relaunch_CellMech(savedir, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.
 
     if c.issubs is not False:
         # do everything for substrate
+        # load data on cell type, create sub-folder in savedir for cell type information
+        snodetype = np.load(savedir + "/nodetype.npy")
+
         # load data on tissue cell positions, save last positions,
         # create sub-folder in savedir for snapshots with all previous data saved as number 0
         c.mysubs.nodesX = np.load(savedir + "/subsnodesr.npy")
@@ -304,15 +311,17 @@ class NodeConfiguration:
         self.N_inv = 1. / self.N
 
         # description of nodes
-        self.nodesX = np.zeros((self.N, 3))             # r of nodes
-        self.nodesPhi = np.zeros((self.N, 3))           # phi of nodes
-        self.Fnode = np.zeros((self.N, 3))              # total force on node
-        self.Mnode = np.zeros((self.N, 3))              # total torsion on node
+        self.nodesX = np.zeros((self.N, 3))  # r of nodes
+        self.nodesPhi = np.zeros((self.N, 3))  # phi of nodes
+        self.Fnode = np.zeros((self.N, 3))  # total force on node
+        self.Mnode = np.zeros((self.N, 3))  # total torsion on node
         self.isF0 = isF0
-        self.F0 = np.zeros((self.N, 3))                 # external force on node
+        self.F0 = np.zeros((self.N, 3))  # external force on node
         self.isanchor = isanchor
-        self.X0 = np.zeros((self.N, 3))                 # node anchor, must be set if needed!
-        self.knode = np.zeros((self.N,))                # spring constant of node to anchor point, defaults to 0
+        self.X0 = np.zeros((self.N, 3))  # node anchor, must be set if needed!
+        self.knode = np.zeros((self.N,))  # spring constant of node to anchor point, defaults to 0
+        self.nodetype = np.zeros((self.N,))  # cell type of either high or low contractility for 							  # F_contr specification
+        self.F_contrval = np.zeros((self.N,))
 
         self.gaps = np.zeros((num_subs, 3))
 
@@ -320,26 +329,26 @@ class NodeConfiguration:
         # islink[i, j] is True if nodes i and j are connected via link
         self.islink = np.full((self.N, self.N), False)  # Describes link at node [0] leading to node [1]
 
-        self.e = np.zeros((self.N, self.N, 3))           # direction connecting nodes (a.k.a. "actual direction")
-        self.d = np.zeros((self.N, self.N))              # distance between nodes (a.k.a. "actual distance")
-        self.d0_0 = d0_0                                 # global equilibrium link length
+        self.e = np.zeros((self.N, self.N, 3))  # direction connecting nodes (a.k.a. "actual direction")
+        self.d = np.zeros((self.N, self.N))  # distance between nodes (a.k.a. "actual distance")
+        self.d0_0 = d0_0  # global equilibrium link length
         if plasticity is None:
-            self.k = np.zeros((self.N, self.N))              # spring constant between nodes
-            self.bend = np.zeros((self.N, self.N))           # bending rigidity
-            self.twist = np.zeros((self.N, self.N))          # torsion spring constant
+            self.k = np.zeros((self.N, self.N))  # spring constant between nodes
+            self.bend = np.zeros((self.N, self.N))  # bending rigidity
+            self.twist = np.zeros((self.N, self.N))  # torsion spring constant
             self.saveram = False
         else:
             self.bend = plasticity[0]
             self.twist = plasticity[1]
             self.k = plasticity[2]
             self.saveram = True
-        self.d0 = np.zeros((self.N, self.N))             # equilibrium distance between nodes,
-        self.t = np.zeros((self.N, self.N, 3))           # tangent vector of link at node (a.k.a. "preferred direction")
-        self.norm = np.zeros((self.N, self.N, 3))        # normal vector of link at node
-        self.Mlink = np.zeros((self.N, self.N, 3))       # Torsion from link on node
-        self.Flink = np.zeros((self.N, self.N, 3))       # Force from link on node
-        self.Flink_tens = np.zeros((self.N, self.N))     # Tensile component of Flink
-        self.F_contr = F_contr                           # Target value for contractile force
+        self.d0 = np.zeros((self.N, self.N))  # equilibrium distance between nodes,
+        self.t = np.zeros((self.N, self.N, 3))  # tangent vector of link at node (a.k.a. "preferred direction")
+        self.norm = np.zeros((self.N, self.N, 3))  # normal vector of link at node
+        self.Mlink = np.zeros((self.N, self.N, 3))  # Torsion from link on node
+        self.Flink = np.zeros((self.N, self.N, 3))  # Force from link on node
+        self.Flink_tens = np.zeros((self.N, self.N))  # Tensile component of Flink
+        self.F_contr = F_contr  # Target values for contractile force
 
         self.p_add = p_add
         self.p_del = p_del
@@ -353,6 +362,7 @@ class NodeConfiguration:
         self.randomsummand = np.zeros((self.N, self.N))
 
         # stuff for documentation
+        self.nodetypesnap = []
         self.nodesnap = []
         self.linksnap = []
         self.fnodesnap = []
@@ -383,6 +393,15 @@ class NodeConfiguration:
             self.nodesum = lambda: np.sum(self.Flink, axis=1) + self.F0 + \
                                    np.multiply(self.knode[..., None], (self.X0 - self.nodesX))
 
+    def setnodetype(self, N, p=[0.5, 0.5]):
+        """
+        Set each node as either a high or low contractility given a specified probability
+        :param N: number of cells (nodes) in simulation
+        :param prob: tuple of the probability of a cell being type 0 (low contractility) or type 1 (high 		 contractility)
+        :return: nodetype: numpy array of shape (N,1) with 0s and 1s specifying cell type to set F_contr values
+        """
+        self.nodetype = random.choice([0, 1], N, p=p)
+
     def addlink(self, ni, mi, t1=None, t2=None, d0=None, bend=1., twist=1., k=1.5, n=None, norm1=None, norm2=None):
         """
         Add a new tissue-tissue link
@@ -408,7 +427,7 @@ class NodeConfiguration:
 
         newdX = self.nodesX[mi] - self.nodesX[ni]
         newd = scipy.linalg.norm(newdX)
-        newe = newdX/newd
+        newe = newdX / newd
         self.d[ni, mi], self.d[mi, ni] = newd, newd
         self.e[ni, mi], self.e[mi, ni] = newe, -newe
 
@@ -614,19 +633,25 @@ class NodeConfiguration:
         """
         Update the equilibrium link length so that each link maintains a constant force
         :param dt: float, the time taken for the last plasticity step
-        :param force: boolean, if False: update done as suggested in czirok2014cell. if True: force-dependent component
-        included.
+        :param force: boolean, if False: update done as suggested in czirok2014cell. if True: force-dependent   		 component included.
         :return:
         """
         nodeinds = np.where(self.islink == True)
         myd0 = self.d0[nodeinds]
+
+        self.F_contrval = np.logical_and(self.nodetype[nodeinds[0]] == 1,
+                                         self.nodetype[nodeinds[1]] == 1, where=self.F_contr[1])
+        self.F_contrval = np.logical_and(self.nodetype[nodeinds[0]] == 0,
+                                         self.nodetype[nodeinds[1]] == 0, where=self.F_contr[0])
+        self.F_contrval = np.logical_not(self.nodetype[nodeinds[0]],
+                                         self.nodetype[nodeinds[1]], where=self.F_contr[1])
 
         temprandom = npr.random((self.randomlength,))
         self.randomsummand[self.lowers], self.randomsummand.T[self.lowers] = temprandom, temprandom
 
         if force:
             # lognorm fitted to match behavior for d0min==0.8, d0max==2.0 and d0_0==1.0
-            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - self.F_contr) * dt * \
+            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - self.F_contrval) * dt * \
                     0.69 * lognorm.pdf(self.d[nodeinds], .7, loc=.7, scale=.5)
 
         myd0 += self.c2 * (self.d0_0 - myd0) * dt + self.c3 * sqrt(dt) * (2 * self.randomsummand[nodeinds] - 1)
@@ -660,38 +685,40 @@ class SubsConfiguration:
         self.Nsubs = num_subs
 
         # description of nodes
-        self.nodesX = np.zeros((self.Nsubs, 3))              # r of subs nodes
-        self.nodesPhi = np.zeros((self.Nsubs, 3))            # phi of subs nodes
-        self.Fnode = np.zeros((self.Nsubs, 3))               # force exerted on subs nodes
-        self.Mnode = np.zeros((self.Nsubs, 3))               # torque exerted on subs nodes
+        self.nodesX = np.zeros((self.Nsubs, 3))  # r of subs nodes
+        self.nodesPhi = np.zeros((self.Nsubs, 3))  # phi of subs nodes
+        self.Fnode = np.zeros((self.Nsubs, 3))  # force exerted on subs nodes
+        self.Mnode = np.zeros((self.Nsubs, 3))  # torque exerted on subs nodes
+        self.nodetype = np.zeros((self.N,))  # cell type of either high or low contractility for F_contr specification
+        self.F_contrval = np.zeros((self.N,))
 
         # description of links
         # islink[i, j] is True if nodes i and j are connected via link
-        self.islink = np.full((self.N, self.Nsubs), False)   # Describes link at cell node [0] leading to subs node [1]
+        self.islink = np.full((self.N, self.Nsubs), False)  # Describes link at cell node [0] leading to subs node [1]
 
-        self.e = np.zeros((self.N, self.Nsubs, 3))           # direction from cell node to subs node
-        self.d = np.zeros((self.N, self.Nsubs))              # distance between nodes (a.k.a. "actual distance")
+        self.e = np.zeros((self.N, self.Nsubs, 3))  # direction from cell node to subs node
+        self.d = np.zeros((self.N, self.Nsubs))  # distance between nodes (a.k.a. "actual distance")
         if plasticity is None:
-            self.k = np.zeros((self.N, self.Nsubs))              # spring constant between nodes
-            self.bend = np.zeros((self.N, self.Nsubs))           # bending rigidity
-            self.twist = np.zeros((self.N, self.Nsubs))          # torsion spring constant
+            self.k = np.zeros((self.N, self.Nsubs))  # spring constant between nodes
+            self.bend = np.zeros((self.N, self.Nsubs))  # bending rigidity
+            self.twist = np.zeros((self.N, self.Nsubs))  # torsion spring constant
             self.saveram = False
         else:
             self.bend = plasticity[0]
             self.twist = plasticity[1]
             self.k = plasticity[2]
             self.saveram = True
-        self.d0 = np.zeros((self.N, self.Nsubs))             # equilibrium distance between nodes
-        self.d0_0 = d0_0                                     # global target equilibrium link length
-        self.tcell = np.zeros((self.N, self.Nsubs, 3))       # tangent vector of link at cell node
-        self.tsubs = np.zeros((self.N, self.Nsubs, 3))       # tangent vector of link at subs node
-        self.normcell = np.zeros((self.N, self.Nsubs, 3))    # normal vector of link at cell node
-        self.normsubs = np.zeros((self.N, self.Nsubs, 3))    # normal vector of link at subs node
-        self.Mcelllink = np.zeros((self.N, self.Nsubs, 3))   # Torsion from link on cell node
-        self.Msubslink = np.zeros((self.N, self.Nsubs, 3))   # Torsion from link on subs node
-        self.Flink = np.zeros((self.N, self.Nsubs, 3))       # Force from link on cell node
-        self.Flink_tens = np.zeros((self.N, self.Nsubs))     # Tensile component of Flink
-        self.F_contr = F_contr                               # target value for contractile force
+        self.d0 = np.zeros((self.N, self.Nsubs))  # equilibrium distance between nodes
+        self.d0_0 = d0_0  # global target equilibrium link length
+        self.tcell = np.zeros((self.N, self.Nsubs, 3))  # tangent vector of link at cell node
+        self.tsubs = np.zeros((self.N, self.Nsubs, 3))  # tangent vector of link at subs node
+        self.normcell = np.zeros((self.N, self.Nsubs, 3))  # normal vector of link at cell node
+        self.normsubs = np.zeros((self.N, self.Nsubs, 3))  # normal vector of link at subs node
+        self.Mcelllink = np.zeros((self.N, self.Nsubs, 3))  # Torsion from link on cell node
+        self.Msubslink = np.zeros((self.N, self.Nsubs, 3))  # Torsion from link on subs node
+        self.Flink = np.zeros((self.N, self.Nsubs, 3))  # Force from link on cell node
+        self.Flink_tens = np.zeros((self.N, self.Nsubs))  # Tensile component of Flink
+        self.F_contr = F_contr  # target value for contractile force
 
         self.p_add = p_add
         self.p_del = p_del
@@ -700,6 +727,7 @@ class SubsConfiguration:
         self.c3 = c3
 
         # stuff for documentation
+        self.nodetypesnap = []
         self.linksnap = []
         self.fnodesnap = []
         self.flinksnap = []
@@ -924,11 +952,18 @@ class SubsConfiguration:
         nodeinds = np.where(self.islink == True)
         myd0 = self.d0[nodeinds]
 
+        self.F_contrval = np.logical_and(self.nodetype[nodeinds[0]] == 1,
+                                         self.nodetype[nodeinds[1]] == 1, where=self.F_contr[1])
+        self.F_contrval = np.logical_and(self.nodetype[nodeinds[0]] == 0,
+                                         self.nodetype[nodeinds[1]] == 0, where=self.F_contr[0])
+        self.F_contrval = np.logical_not(self.nodetype[nodeinds[0]],
+                                         self.nodetype[nodeinds[1]], where=self.F_contr[1])
+
         subsrandom = npr.random(len(nodeinds[0]))
 
         if force:
             # lognorm fitted to match behavior for d0min==0.8, d0max==2.0 and d0_0==1.0
-            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - self.F_contr) * dt *\
+            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - self.F_contrval) * dt * \
                     0.69 * lognorm.pdf(self.d[nodeinds], .7, loc=.7, scale=.5)
 
         myd0 += self.c2 * (self.d0_0 - myd0) * dt + self.c3 * sqrt(dt) * (2 * subsrandom - 1)
@@ -937,9 +972,9 @@ class SubsConfiguration:
 
 
 class CellMech:
-    def __init__(self, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.001, d0_0=1., p_add=1., p_del=0.2, c1=0.05,
+    def __init__(self, num_cells, num_subs=100, dt=0.01, nmax=300, qmin=0.001, d0_0=1., p_add=1., p_del=0.2, c1=0.05,
                  c2=0.1, c3=0.2, subs_scale=False, p_add_subs=None, p_del_subs=None, chkx=False, d0max=2., dims=3,
-                 F_contr=1., isF0=False, isanchor=False, issubs=False, force_contr=True, plasticity=(1., 1., 1.5)):
+                 F_contr=[1, 1], isF0=False, isanchor=False, issubs=False, force_contr=True, plasticity=(1., 1., 1.5)):
         """
         Implementation of model for cell-resolved, multiparticle model of plastic tissue deformations and morphogenesis
         first suggested by Czirok et al in 2014 (https://iopscience.iop.org/article/10.1088/1478-3975/12/1/016005/meta,
@@ -1032,7 +1067,7 @@ class CellMech:
                 subsplasticity = (plasticity[0] / subs_scale, plasticity[1] / subs_scale, plasticity[2] / subs_scale)
                 self.mysubs = SubsConfiguration(num_cells=num_cells, num_subs=num_subs, d0_0=d0_0,
                                                 c1=c1, c2=c2, c3=c3, F_contr=F_contr,
-                                                p_add=p_add_subs, p_del=p_del_subs*subs_scale,
+                                                p_add=p_add_subs, p_del=p_del_subs * subs_scale,
                                                 plasticity=subsplasticity)
             self.mechEquilibrium = lambda: self.mechEquilibrium_withsubs()
             self.makesnap = lambda t: self.makesnap_withsubs(t)
@@ -1082,6 +1117,7 @@ class CellMech:
         def event(temp, y):
             k1 = self.mynodes.getForces(y, t, norm, normT, bend, twist, k, d0, nodeinds)
             return np.max(np.abs(k1) - self.qmin)
+
         event.terminal = True
         event.direction = -1
 
@@ -1119,6 +1155,7 @@ class CellMech:
             k1 = self.mynodes.getForces(y, t, norm, normT, bend, twist, k, d0, nodeinds) + \
                  self.mysubs.getForces(y, tcell, tsubs, normcell, normsubs, bends, twists, ks, d0s, nodeindss)
             return np.max(np.abs(k1[:self.N2]) - self.qmin)
+
         event.terminal = True
         event.direction = -1
 
@@ -1153,6 +1190,7 @@ class CellMech:
         def event(temp, y):
             k1 = self.mysubs.getForces(y, tcell, tsubs, normcell, normsubs, bends, twists, ks, d0s, nodeindss)
             return np.max(np.abs(k1[:self.N2]) - self.qmin)
+
         event.terminal = True
         event.direction = -1
 
@@ -1286,7 +1324,7 @@ class CellMech:
             linksum += len(linklist)
             for link in linklist:
                 if self.mysubs.d[link[0], link[1]] < self.mysubs.d0[link[0], link[1]]:
-                    continue        # compressed links are stable
+                    continue  # compressed links are stable
                 f = scipy.linalg.norm(self.mysubs.Flink[link[0], link[1]])
                 p = exp(f)
                 del_links.append(link)
@@ -1298,7 +1336,7 @@ class CellMech:
             return [[], [], []]  # catch case where there is only one tissue-substrate link ("lonesome" setting)
         for link in linklist:
             if self.mynodes.d[link[0], link[1]] < self.mynodes.d0[link[0], link[1]]:
-                continue            # compressed links are stable
+                continue  # compressed links are stable
             f = scipy.linalg.norm(self.mynodes.Flink[link[0], link[1]])
             p = exp(f)
             del_links.append(link)
@@ -1406,7 +1444,7 @@ class CellMech:
         for i in range(self.N):
             for j in range(self.mysubs.Nsubs):
                 d = self.tryLink_issubs(i, j)
-                if d > 1e-5:   # if d < 0: link rejected by tryLink
+                if d > 1e-5:  # if d < 0: link rejected by tryLink
                     p = 1 - (d / self.d0max)
                     add_links.append((i, j + self.N))
                     add_probs.append(p * self.mysubs.p_add)
@@ -1429,7 +1467,7 @@ class CellMech:
 
         S = s1 + s2  # norm for probabilities
         if S < 1e-7:
-            print ("nothing to do!")
+            print("nothing to do!")
             return 1.
         dt = -log(npr.random()) / S
         if dt > 1:
@@ -1449,7 +1487,7 @@ class CellMech:
 
         r = r - s1
         if r < s2:  # we will add a link
-            R = r - np.cumsum(p_add)    # find root in s1 - \sum\limits_{i=0}^{n}p_del_n
+            R = r - np.cumsum(p_add)  # find root in s1 - \sum\limits_{i=0}^{n}p_del_n
             ni = np.where(R < 0)[0][0]
             if not boo_add[ni]:  # link to be removed is tissue-tissue link
                 self.mynodes.addlink(l_add[ni][0], l_add[ni][1])
@@ -1482,6 +1520,7 @@ class CellMech:
         :param t: float, current time in simulation run
         :return: Nothing
         """
+        self.mynodes.nodetypesnap.append(self.mynodes.nodetype.copy())
         self.mynodes.nodesnap.append(self.mynodes.nodesX.copy())
         self.mynodes.fnodesnap.append(self.mynodes.Fnode.copy())
         linkList = self.mynodes.getLinkList()
@@ -1496,6 +1535,7 @@ class CellMech:
         :param t: float, current time in simulation run
         :return: Nothing
         """
+        self.mynodes.nodetypesnap.append(self.mynodes.nodetype.copy())
         self.mynodes.nodesnap.append(self.mynodes.nodesX.copy())
         self.mynodes.fnodesnap.append(self.mynodes.Fnode.copy())
         self.mysubs.fnodesnap.append(self.mysubs.Fnode.copy())
@@ -1514,6 +1554,7 @@ class CellMech:
         :param t: float, current time in simulation run
         :return: Nothing
         """
+        self.mynodes.nodetypesnap.append(self.mynodes.nodetype.copy())
         self.mynodes.nodesnap.append(self.mynodes.nodesX.copy())
         self.mynodes.fnodesnap.append(self.mynodes.Fnode.copy())
         self.mysubs.fnodesnap.append(self.mysubs.Fnode.copy())
@@ -1536,11 +1577,13 @@ class CellMech:
         np.save(savedir + "/" + savewhat + "/" + nstr, savelist)
         return []
 
-    def savedata(self, savedir="res", savenodes_r=True, savelinks=True, savenodes_f=True, savelinks_f=True, savet=True,
+    def savedata(self, savedir="res", savenodetype=True, savenodes_r=True, savelinks=True, savenodes_f=True,
+                 savelinks_f=True, savet=True,
                  savephi=True, savetang=True, savenorm=True, saved0=True):
         """
         Save important configuration data to disk and clear snapshots in memory
         :param savedir: string, name of directory to save in (based on current working directory)
+        :param savenodetype: boolean, whether to save node type
         :param savenodes_r: boolean, whether to save node positions
         :param savelinks: boolean, whether to save links
         :param savenodes_f: boolean, whether to save forces on nodes
@@ -1555,6 +1598,8 @@ class CellMech:
         linklist = np.where(self.mynodes.islink == True)
         if not os.path.isdir("./" + savedir):
             os.mkdir("./" + savedir)
+        if savenodetype:
+            self.nodetypesnap = self.saveonesnap("nodetype", savedir, self.mynodes.nodetypesnap)
         if savenodes_r:
             self.mynodes.nodesnap = self.saveonesnap("nodesr", savedir, self.mynodes.nodesnap)
         if savenodes_f:
@@ -1610,12 +1655,13 @@ class CellMech:
         savestr = savedir + "/" + savewhat
         for i in range(self.nsaves):
             nstr = savestr + "/" + str(i).zfill(3) + ".npy"
-            templist += list(np.load(nstr))
+            templist += list(np.load(nstr, allow_pickle=True))
         np.save(savestr, templist)
         del templist
         shutil.rmtree(savestr)
 
-    def cleansaves(self, savedir="res", savenodes_r=True, savelinks=True, savenodes_f=True, savelinks_f=True,
+    def cleansaves(self, savedir="res", savenodetype=True, savenodes_r=True, savelinks=True, savenodes_f=True,
+                   savelinks_f=True,
                    savet=True):
         """
         Clean up temporary directories, combine temporary .npy files into one .npy file each
@@ -1627,6 +1673,8 @@ class CellMech:
         :param savet: boolean, whether timesteps where saved
         :return:
         """
+        if savenodetype:
+            self.cleanonesave("nodetype", savedir)
         if savenodes_r:
             self.cleanonesave("nodesr", savedir)
         if savenodes_f:
@@ -1730,6 +1778,7 @@ class CellMech:
         def event(temp, y):
             k1 = self.mynodes.getForces(y, t, norm, normT, bend, twist, k, d0, nodeinds)
             return np.max(np.abs(k1) - self.qmin)
+
         event.terminal = True
         event.direction = -1
 
@@ -1767,6 +1816,7 @@ class CellMech:
             k1 = self.mynodes.getForces(y, t, norm, normT, bend, twist, k, d0, nodeinds) + \
                  self.mysubs.getForces(y, tcell, tsubs, normcell, normsubs, bends, twists, ks, d0s, nodeindss)
             return np.max(np.abs(k1) - self.qmin)
+
         event.terminal = True
         event.direction = -1
 
