@@ -9,13 +9,9 @@ import subprocess, os, sys
 np.load.__defaults__=(None, True, True, 'ASCII')
 
 
-<<<<<<< HEAD
-def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
-               figsize=(1000, 1000), upto=-1):
-=======
 def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
                figsize=(1000, 1000), cmap='viridis', vmaxlinks=5, vmaxcells=5, cbar=False, upto=-1):
->>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
+
     """
 
     :param c: numpy array of shape (ncells, 3) containing positions of cells
@@ -48,10 +44,7 @@ def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), f
     fc = scipy.linalg.norm(nF, axis=1)               # get absolute value of force on nodes
 
     # initialize cell visualization
-<<<<<<< HEAD
-    cells = mlab.points3d(x[:upto], y[:upto], z[:upto], fc[:upto], scale_factor=1, opacity=0.5, resolution=16,
-                          scale_mode='none', vmin=0., color=(0, 0, 0))
-=======
+
     cid0 = cellTypes[0]
     cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], fc[cid0], scale_factor=1, opacity=0.5, resolution=16,
                           scale_mode='none', vmin=0., colormap='viridis', vmax=vmaxcells)
@@ -60,23 +53,18 @@ def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), f
     cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], fc[cid1], scale_factor=1, opacity=0.5, resolution=16,
                           scale_mode='none', vmin=0., colormap='Oranges', vmax=vmaxcells)
 
->>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
+
 
         
     # initialize link visualization
-<<<<<<< HEAD
-    links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, mode='2ddash', line_width=2., scale_mode='vector',
-                          scale_factor=1, color=(0, 0, 0))
 
-    return cells, links
-=======
     links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, scalars=fl, mode='2ddash', line_width=4., scale_mode='vector',
                           scale_factor=1, colormap=cmap, vmin=0., vmax=vmaxlinks)
     links.glyph.color_mode = "color_by_scalar"
     if cbar:
         mlab.scalarbar(links, nb_labels=2, title='Force on link')
     return cells0, cells1, links
->>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
+
 
 
 def pack(A, B):
@@ -133,7 +121,7 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     # unpack Simdata and SubsSimdata
     Configs, Links, nodeForces, linkForces, ts = Simdata
     
-    # "fake" / stand-in indecies for when we actually encode cell types.
+    # "fake" / stand-in indices for when we actually encode cell types.
     nCells = len(Configs[0])
     inds = np.arange(nCells)
     np.random.shuffle(inds)
@@ -186,13 +174,16 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     linkForces = [scipy.linalg.norm(lFstep, axis=1) for lFstep in linkForces]
 
     # show first timestep of animation
-<<<<<<< HEAD
-    cells, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0], fig, upto=upto)
-=======
+
+    cmap='viridis'
+    cbar=False
+    vmaxcells=5
+    vmaxlinks=5
+    upto=-1
+
     cells0, cells1, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0],
-                                       cellTypes, fig, cmap=cmap, cbar=cbar,vmaxcells=vmaxcells, 
-                                       vmaxlinks=vmaxlinks, upto=upto)
->>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
+                                      cellTypes, fig, cmap=cmap, cbar=cbar, vmaxcells=vmaxcells, vmaxlinks=vmaxlinks, upto=upto)
+
 
     text = mlab.title('0.0', height=.9)  # show current time
 
