@@ -24,9 +24,8 @@ ey = np.array([0.0, 1.0, 0.0])
 ez = np.array([0.0, 0.0, 1.0])
 
 
-# modify the default parameters of np.load to allow pickling (this lives in animate for now)
-# np_load_old = np.load
-# np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+# modify the default parameters of np.load to allow pickling
+np.load.__defaults__=(None, True, True, 'ASCII')
 
 
 
@@ -1646,6 +1645,9 @@ class CellMech:
                 self.cleanonesave("subslinks", savedir)
             if savelinks_f:
                 self.cleanonesave("subslinksf", savedir)
+
+    def cleartmp(self):
+        pass
 
     def timeevo(self, tmax, isinit=True, isfinis=True, record=True, progress=True, dtrec=0,
                 savedata=True, savedir="res", dtsave=None):

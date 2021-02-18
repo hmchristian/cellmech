@@ -6,12 +6,16 @@ import subprocess, os, sys
 
 
 # modify the default parameters of np.load to allow pickling
-np_load_old = np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+np.load.__defaults__=(None, True, True, 'ASCII')
 
 
+<<<<<<< HEAD
 def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
                figsize=(1000, 1000), upto=-1):
+=======
+def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
+               figsize=(1000, 1000), cmap='viridis', vmaxlinks=5, vmaxcells=5, cbar=False, upto=-1):
+>>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
     """
 
     :param c: numpy array of shape (ncells, 3) containing positions of cells
@@ -19,6 +23,7 @@ def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(
     :param nF: numpy array of shape (ncells, 3) containing forces on cells
     :param fl: numpy array of shapes (nlinks) containing absolute value of forces on links connecting  cells
     :param figure: figure passed on
+    :param cellTypes: list of 2 numpy arrays, that contain the indecies of cells of type 1 and 2.
     :param figureindex: n of figure
     :param bgcolor: tuple of shape (3,) indicating foreground color
     :param fgcolor: tuple of shape (3,) indicating background color
@@ -30,25 +35,48 @@ def initconfig(c, l, nF, fl, figure, figureindex=0, bgcolor=(1, 1, 1), fgcolor=(
     :param upto: index of last tissue cell when concatenating tissue and substrate cells
     :return: animation data
     """
-
+    #make fig
     if figure is None:
         fig = mlab.figure(figureindex, bgcolor=bgcolor, fgcolor=fgcolor, size=figsize)
     else:
         fig = figure
-    x, y, z = c.T  # extract all x, y and z positions in individual arrays
-    xl, yl, zl = c[l[..., 0]].T  # extract x, y, and z positions of one end for each link
+    
+    #extract variables for plot    
+    x, y, z = c.T                                    # extract all x, y and z positions in individual arrays
+    xl, yl, zl = c[l[..., 0]].T                      # extract x, y, and z positions of one end for each link
     rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T  # extract x, y and z components of vectors describing links
-    fc = scipy.linalg.norm(nF, axis=1)  # get absolute value of force on nodes
+    fc = scipy.linalg.norm(nF, axis=1)               # get absolute value of force on nodes
 
     # initialize cell visualization
+<<<<<<< HEAD
     cells = mlab.points3d(x[:upto], y[:upto], z[:upto], fc[:upto], scale_factor=1, opacity=0.5, resolution=16,
                           scale_mode='none', vmin=0., color=(0, 0, 0))
+=======
+    cid0 = cellTypes[0]
+    cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], fc[cid0], scale_factor=1, opacity=0.5, resolution=16,
+                          scale_mode='none', vmin=0., colormap='viridis', vmax=vmaxcells)
+    
+    cid1 = cellTypes[1]
+    cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], fc[cid1], scale_factor=1, opacity=0.5, resolution=16,
+                          scale_mode='none', vmin=0., colormap='Oranges', vmax=vmaxcells)
 
+>>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
+
+        
     # initialize link visualization
+<<<<<<< HEAD
     links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, mode='2ddash', line_width=2., scale_mode='vector',
                           scale_factor=1, color=(0, 0, 0))
 
     return cells, links
+=======
+    links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, scalars=fl, mode='2ddash', line_width=4., scale_mode='vector',
+                          scale_factor=1, colormap=cmap, vmin=0., vmax=vmaxlinks)
+    links.glyph.color_mode = "color_by_scalar"
+    if cbar:
+        mlab.scalarbar(links, nb_labels=2, title='Force on link')
+    return cells0, cells1, links
+>>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
 
 
 def pack(A, B):
@@ -81,6 +109,7 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
         linkForces: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 3) containing forces on
             links connecting tissue cells
         ts: numpy array of shape (timesteps,) containing times of the system snapshots
+        cellTypes:list of 2 numpy arrays, that contain the indecies of cells of type 1 and 2.
     :param SubsSimdata: None if simulations didn't include substrate, or Tuple containing items:
         Subs: numpy array of shape (timesteps, ncells, 3) containing positions of substrate cells
         SubsLinks: list of length (timesteps,) containing numpy arrays of shape (nlinks, 2) containing indices of
@@ -103,6 +132,14 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     """
     # unpack Simdata and SubsSimdata
     Configs, Links, nodeForces, linkForces, ts = Simdata
+    
+    # "fake" / stand-in indecies for when we actually encode cell types.
+    nCells = len(Configs[0])
+    inds = np.arange(nCells)
+    np.random.shuffle(inds)
+    cid0 = inds[0:int(len(inds)/2)] ; cid1 = inds[int(len(inds)/2):]
+    cellTypes = [cid0,cid1]
+    
 
     if SubsSimdata is None:
         Subs = None
@@ -119,8 +156,8 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     else:
         upto = len(Configs[0])  # index of last tissue cell when concatenating tissue and substrate cells
 
-    # prepare data for animation in different cases of CellMech.issubs
 
+    # prepare data for animation in different cases of CellMech.issubs
     if nodeForces is None:
         nodeForces = np.zeros(Configs.shape)
     if linkForces is None and Links is not None:
@@ -149,7 +186,13 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     linkForces = [scipy.linalg.norm(lFstep, axis=1) for lFstep in linkForces]
 
     # show first timestep of animation
+<<<<<<< HEAD
     cells, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0], fig, upto=upto)
+=======
+    cells0, cells1, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0],
+                                       cellTypes, fig, cmap=cmap, cbar=cbar,vmaxcells=vmaxcells, 
+                                       vmaxlinks=vmaxlinks, upto=upto)
+>>>>>>> 5fbd8415da6dac6cfbeb4a5770d95270133ae436
 
     text = mlab.title('0.0', height=.9)  # show current time
 
@@ -170,13 +213,15 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     # create animation
     while True:
         for (c, l, nF, fl, t) in zip(Configs, Links, nodeForces, linkForces, ts):
-            x, y, z = c.T  # extract all x, y and z positions in individual arrays
-            xl, yl, zl = c[l[..., 0]].T  # extract x, y, and z positions of one end for each link
-            rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T  # extract x, y and z components of vectors describing links
-            fc = scipy.linalg.norm(nF, axis=1)  # get absolute value of force on nodes
+            x, y, z = c.T                                      # extract all x, y and z positions in individual arrays
+            xl, yl, zl = c[l[..., 0]].T                        # extract x, y, and z positions of one end for each link
+            rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T    # extract x, y and z components of vectors describing links
+            fc = scipy.linalg.norm(nF, axis=1)                 # get absolute value of force on nodes
 
             # update data
-            cells.mlab_source.set(x=x[:upto], y=y[:upto], z=z[:upto], scalars=fc[:upto])
+            cid0 , cid1 = cellTypes[0] , cellTypes[1]
+            cells0.mlab_source.set(x=x[cid0], y=y[cid0], z=z[cid0], scalars=fc[cid0])
+            cells1.mlab_source.set(x=x[cid1], y=y[cid1], z=z[cid1], scalars=fc[cid1])
             links.mlab_source.reset(x=xl, y=yl, z=zl, u=rxl, v=ryl, w=rzl, scalars=fl)
             text.set(text='{}'.format(round(t, 2)))
 
@@ -210,7 +255,6 @@ def record_cleanup(out_path="./movie", prefix="ani", fps=10):
 
     # Remove temp image files with extension
     [os.remove(out_path + "/" + f) for f in os.listdir(out_path) if f.endswith(ext)]
-
 
 def fetchdata(fetchdir, toskip=1):
     """
