@@ -22,11 +22,11 @@ if __name__ == '__main__':
 
     ####################
 
-    Lmax = 15.88                    # Length of confining square for tissue cells
-    Lsubs = 15.88                  # Length of confining square for substrate cells
-    N = 141                    # Number of cells. If None: int(2 * Lmax**2)
-    Nsubs = 141                # Number of substrate cells. If None: int(Lmax**2)
-    runtime = 200.              # Length of simulation run
+    Lmax = 15.88               # Length of confining square for tissue cells
+    Lsubs = 15.88               # Length of confining square for substrate cells
+    N = 141                      # Number of cells. If None: int(2 * Lmax**2)
+    Nsubs = 141               # Number of substrate cells. If None: int(Lmax**2)
+    runtime = 5000.              # Length of simulation run
     dims = 3                    # Number of dimensions for the given problem
 
     dtrec = 0.                  # Periodicity of making configuration snapshots (done after every plasticity step if 0)
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     qmin = 0.001                # Threshhold tension beneath which the system is in mechanical equilibrium
 
     d0min = 0.8                 # min distance between cells when initialized
-    d0max = 2.0                 # max distance connected by links
+    d0max = 1.4                 # max distance connected by links
     d0_0 = 1.                   # equilibrium distance of links (fundamental scaling of space)
     p_add = 1.                  # rate to add cell-cell links
     p_del = 0.2                 # rate to delete cell-cell links
@@ -99,9 +99,12 @@ if __name__ == '__main__':
                 config.mysubs.addlink(i, j - config.N, config.mynodes.nodesX[i], config.mynodes.nodesPhi[i])
 
     # run and save simulation
+    nodetype = config.setnodetype(N, p=[0.5, 0.5])
+    nodetypepack = config.nodetypepacking(nodetype)
+    
     config.timeevo(runtime, dtrec=dtrec, savedata=savedata, savedir=savedir, dtsave=dtsave)
     dumpdata, simdata, subssimdata = fetchdata(savedir)
-
+    
     # animate results
-    animateconfigs(simdata, subssimdata, showsubs=False)
+    animateconfigs(simdata, nodetypepack, subssimdata, showsubs=False)
     mlab.show()

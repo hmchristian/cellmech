@@ -197,6 +197,8 @@ def relaunch_CellMech(savedir, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.
 
     # load data on cell type, create sub-folder in savedir for cell type information
     snodetype = np.load(savedir + "/nodetype.npy")
+    c.mynodes.nodetypesnap = list(snodetype)
+    c.mynodes.nodetypesnap = c.saveonesnap("nodetype",savedir, c.mynodes.nodetypesnap)
 
     # load data on tissue cell positions, save last positions,
     # create sub-folder in savedir for snapshots with all previous data saved as number 0
@@ -234,7 +236,7 @@ def relaunch_CellMech(savedir, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.
     if c.issubs is not False:
         # do everything for substrate
         # load data on cell type, create sub-folder in savedir for cell type information
-        snodetype = np.load(savedir + "/nodetype.npy")
+        c.mynodes.nodetype = np.load(savedir + "/nodetype.npy")
 
         # load data on tissue cell positions, save last positions,
         # create sub-folder in savedir for snapshots with all previous data saved as number 0
@@ -320,9 +322,8 @@ class NodeConfiguration:
         self.isanchor = isanchor
         self.X0 = np.zeros((self.N, 3))  # node anchor, must be set if needed!
         self.knode = np.zeros((self.N,))  # spring constant of node to anchor point, defaults to 0
-        self.nodetype = np.zeros((self.N,))  # cell type of either high or low contractility for 							  # F_contr specification
-        self.F_contrval = np.zeros((self.N,))
-
+        self.nodetype = np.zeros((self.N))  # cell type of either high or low contractility for F_contr specification
+        self.F_contrval = np.zeros((self.N))
         self.gaps = np.zeros((num_subs, 3))
 
         # description of links
@@ -362,6 +363,7 @@ class NodeConfiguration:
         self.randomsummand = np.zeros((self.N, self.N))
 
         # stuff for documentation
+        self.nodetypepack = []
         self.nodetypesnap = []
         self.nodesnap = []
         self.linksnap = []
@@ -397,10 +399,22 @@ class NodeConfiguration:
         """
         Set each node as either a high or low contractility given a specified probability
         :param N: number of cells (nodes) in simulation
-        :param prob: tuple of the probability of a cell being type 0 (low contractility) or type 1 (high 		 contractility)
+        :param p: tuple of the probability of a cell being type 0 (low contractility) or type 1 (high contractility)
         :return: nodetype: numpy array of shape (N,1) with 0s and 1s specifying cell type to set F_contr values
         """
-        self.nodetype = random.choice([0, 1], N, p=p)
+        self.nodetype = np.random.choice([0, 1], N, p=p)
+        return self.nodetype
+    
+    def nodetypepacking(self, nodetype):
+        
+        """
+        pack nodetype information for animation
+        """
+        self.nodetypepack0 = np.where(nodetype == 0)
+        self.nodetypepack1 = np.where(nodetype == 1)
+        self.nodetypepack = [self.nodetypepack0, self.nodetypepack1]
+    
+        return self.nodetypepack
 
     def addlink(self, ni, mi, t1=None, t2=None, d0=None, bend=1., twist=1., k=1.5, n=None, norm1=None, norm2=None):
         """
@@ -641,10 +655,12 @@ class NodeConfiguration:
 
         self.F_contrval = np.logical_and(self.nodetype[nodeinds[0]] == 1,
                                          self.nodetype[nodeinds[1]] == 1, where=self.F_contr[1])
+        
         self.F_contrval = np.logical_and(self.nodetype[nodeinds[0]] == 0,
                                          self.nodetype[nodeinds[1]] == 0, where=self.F_contr[0])
-        self.F_contrval = np.logical_not(self.nodetype[nodeinds[0]],
-                                         self.nodetype[nodeinds[1]], where=self.F_contr[1])
+        
+        self.F_contrval = np.logical_not(self.nodetype[nodeinds[0]] == 1,
+                                         self.nodetype[nodeinds[1]] == 0, where=self.F_contr[0])
 
         temprandom = npr.random((self.randomlength,))
         self.randomsummand[self.lowers], self.randomsummand.T[self.lowers] = temprandom, temprandom
@@ -689,8 +705,8 @@ class SubsConfiguration:
         self.nodesPhi = np.zeros((self.Nsubs, 3))  # phi of subs nodes
         self.Fnode = np.zeros((self.Nsubs, 3))  # force exerted on subs nodes
         self.Mnode = np.zeros((self.Nsubs, 3))  # torque exerted on subs nodes
-        self.nodetype = np.zeros((self.N,))  # cell type of either high or low contractility for F_contr specification
-        self.F_contrval = np.zeros((self.N,))
+        self.nodetype = np.zeros((self.N))  # cell type of either high or low contractility for F_contr specification
+        self.F_contrval = np.zeros((self.N))
 
         # description of links
         # islink[i, j] is True if nodes i and j are connected via link
@@ -974,7 +990,7 @@ class SubsConfiguration:
 class CellMech:
     def __init__(self, num_cells, num_subs=100, dt=0.01, nmax=300, qmin=0.001, d0_0=1., p_add=1., p_del=0.2, c1=0.05,
                  c2=0.1, c3=0.2, subs_scale=False, p_add_subs=None, p_del_subs=None, chkx=False, d0max=2., dims=3,
-                 F_contr=[1, 1], isF0=False, isanchor=False, issubs=False, force_contr=True, plasticity=(1., 1., 1.5)):
+                 F_contr=[1, 40], isF0=False, isanchor=False, issubs=False, force_contr=True, plasticity=(1., 1., 1.5)):
         """
         Implementation of model for cell-resolved, multiparticle model of plastic tissue deformations and morphogenesis
         first suggested by Czirok et al in 2014 (https://iopscience.iop.org/article/10.1088/1478-3975/12/1/016005/meta,
@@ -1051,7 +1067,8 @@ class CellMech:
         self.mynodes = NodeConfiguration(num=num_cells, num_subs=num_subs, p_add=p_add, p_del=p_del,
                                          c1=c1, c2=c2, c3=c3, F_contr=F_contr,
                                          dims=dims, d0_0=d0_0, isF0=isF0, isanchor=isanchor, plasticity=plasticity)
-
+        
+        
         if self.issubs is True:
             # initialize instance of SubsConfiguration containing data on substrate cells, set functions to account for
             # substrate when calculating forces and saving steps
@@ -1096,6 +1113,27 @@ class CellMech:
             # catch incorrect choice of issubs
             print ("I don't know that type of subs")
             sys.exit()
+        
+    def setnodetype(self, N, p=[0.5, 0.5]):
+        """
+        Set each node as either a high or low contractility given a specified probability
+        :param N: number of cells (nodes) in simulation
+        :param p: tuple of the probability of a cell being type 0 (low contractility) or type 1 (high contractility)
+        :return: nodetype: numpy array of shape (N,1) with 0s and 1s specifying cell type to set F_contr values
+        """
+        self.nodetype = np.random.choice([0, 1], N, p=p)
+        return self.nodetype
+    
+    def nodetypepacking(self, nodetype):
+        
+        """
+        pack nodetype information for animation
+        """
+        self.nodetypepack0 = np.where(nodetype == 0)
+        self.nodetypepack1 = np.where(nodetype == 1)
+        self.nodetypepack = [self.nodetypepack0, self.nodetypepack1]
+    
+        return self.nodetypepack
 
     def mechEquilibrium_nosubs(self):
         """
@@ -1158,7 +1196,8 @@ class CellMech:
 
         event.terminal = True
         event.direction = -1
-
+        
+       
         # perform equilibration
         res = solve_ivp(fun=notatallfun, t_span=[0, self.tmax], y0=x, method='LSODA', events=[event], atol=1e-3)
 
@@ -1520,7 +1559,7 @@ class CellMech:
         :param t: float, current time in simulation run
         :return: Nothing
         """
-        self.mynodes.nodetypesnap.append(self.mynodes.nodetype.copy())
+        self.mynodes.nodetypesnap.append(self.mynodes.nodetypepack.copy())
         self.mynodes.nodesnap.append(self.mynodes.nodesX.copy())
         self.mynodes.fnodesnap.append(self.mynodes.Fnode.copy())
         linkList = self.mynodes.getLinkList()
@@ -1535,7 +1574,7 @@ class CellMech:
         :param t: float, current time in simulation run
         :return: Nothing
         """
-        self.mynodes.nodetypesnap.append(self.mynodes.nodetype.copy())
+        self.mynodes.nodetypesnap.append(self.mynodes.nodetypepack.copy())
         self.mynodes.nodesnap.append(self.mynodes.nodesX.copy())
         self.mynodes.fnodesnap.append(self.mynodes.Fnode.copy())
         self.mysubs.fnodesnap.append(self.mysubs.Fnode.copy())
@@ -1554,7 +1593,7 @@ class CellMech:
         :param t: float, current time in simulation run
         :return: Nothing
         """
-        self.mynodes.nodetypesnap.append(self.mynodes.nodetype.copy())
+        self.mynodes.nodetypesnap.append(self.mynodes.nodetypepack.copy())
         self.mynodes.nodesnap.append(self.mynodes.nodesX.copy())
         self.mynodes.fnodesnap.append(self.mynodes.Fnode.copy())
         self.mysubs.fnodesnap.append(self.mysubs.Fnode.copy())
@@ -1738,7 +1777,6 @@ class CellMech:
             dtsave = tmax
 
         # main loop
-
         while t < tmax:
             dt = self.mechEquilibrium()
             t += dt
