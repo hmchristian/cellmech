@@ -82,7 +82,7 @@ def pack(A, B):
 @mlab.animate(delay=70)
 def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/", recordname="ani",
                    figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), figsize=(1000, 1000),
-                   cmap='viridis', cbar=False, showsubs=False):
+                   cmap='viridis', cbar=False, showsubs=False,cell_types=None):
     """
     Create animation of simulation results previously created with cell.py
     :param Simdata: Tuple containing items:
@@ -93,7 +93,6 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
         linkForces: list of length (timesteps,) containing numpy arrays of shapes (nlinks, 3) containing forces on
             links connecting tissue cells
         ts: numpy array of shape (timesteps,) containing times of the system snapshots
-        cellTypes:list of 2 numpy arrays, that contain the indecies of cells of type 1 and 2.
     :param SubsSimdata: None if simulations didn't include substrate, or Tuple containing items:
         Subs: numpy array of shape (timesteps, ncells, 3) containing positions of substrate cells
         SubsLinks: list of length (timesteps,) containing numpy arrays of shape (nlinks, 2) containing indices of
@@ -112,17 +111,21 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     :param cmap: color map visualization
     :param cbar: color bar
     :param showsubs: boolean, whether or not to explicitly visualize substrate cells
+    :param cell_types: TwoCelltypePatch object, containing definition which cell is which type
     :return:
     """
     # unpack Simdata and SubsSimdata
     Configs, Links, nodeForces, linkForces, ts = Simdata
     
     # "fake" / stand-in indecies for when we actually encode cell types.
-    nCells = len(Configs[0])
-    inds = np.arange(nCells)
-    np.random.shuffle(inds)
-    cid0 = inds[0:int(len(inds)/2)] ; cid1 = inds[int(len(inds)/2):]
-    cellTypes = [cid0,cid1]
+    # nCells = len(Configs[0])
+    # inds = np.arange(nCells)
+    # np.random.shuffle(inds)
+    # cid0 = inds[0:int(len(inds)/2)] ; cid1 = inds[int(len(inds)/2):]
+    # cellTypes = [cid0,cid1]
+    
+    #extract the indicies of the cell_types from the cell_type object
+    cellTypes = cell_types.cell_type_inds 
     
 
     if SubsSimdata is None:
