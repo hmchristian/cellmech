@@ -265,7 +265,7 @@ def relaunch_CellMech(savedir, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.
 
 
 class NodeConfiguration:
-    def __init__(self, num, num_subs, d0_0, p_add, p_del, c1, c2, c3, F_contr, dims, isF0, isanchor, plasticity):
+    def __init__(self, num, num_subs, d0_0, p_add, p_del, c1, c2, c3, F_contr, dims, isF0, isanchor, plasticity,cell_types=None):
         """
         Class containing data for all tissue nodes and tissue-tissue links. Is automatically initialized by class
         CellMech
@@ -284,6 +284,7 @@ class NodeConfiguration:
         :param isanchor: bool, whether or not tissue cells are anchored to a x0-position
         :param plasticity: Either None if Hookean, bend and twist constants are set individually per link, or tuple
             containing global values for the three constants in shape (k1, k2, k3) = (bend, twist, Hooke)
+        :param cell_types: [num_cells,] np.array of cell types (1 or 0)
         """
         if dims == 2:
             self.updateLinkForces = lambda PHI, T, Norm, NormT, Bend, Twist, K, D0, Nodeinds: \
@@ -340,6 +341,7 @@ class NodeConfiguration:
         self.Flink = np.zeros((self.N, self.N, 3))       # Force from link on node
         self.Flink_tens = np.zeros((self.N, self.N))     # Tensile component of Flink
         self.F_contr = F_contr                           # Target value for contractile force
+        self.cell_types = cell_types                     # [1xN] array of cell types (1 or 0) or None
 
         self.p_add = p_add
         self.p_del = p_del
@@ -618,15 +620,25 @@ class NodeConfiguration:
         included.
         :return:
         """
-        nodeinds = np.where(self.islink == True)
-        myd0 = self.d0[nodeinds]
+        #extract d0 as a vector
+        nodeinds = np.where(self.islink == True)        # tuple of (x,y) inds, x and y are arrays
+        myd0 = self.d0[nodeinds]                        # subsample from d0 matrix into a dense vector
 
-        temprandom = npr.random((self.randomlength,))
-        self.randomsummand[self.lowers], self.randomsummand.T[self.lowers] = temprandom, temprandom
+        #create a symmetric matrix of random purturbations
+        temprandom = npr.random((self.randomlength,))                                                # random
+        self.randomsummand[self.lowers], self.randomsummand.T[self.lowers] = temprandom, temprandom  # symmetric
 
+        #form the contraction vector - defining the contraction force of each cell (i,j) pairing
+        if type(self.F_contr) == np.ndarray:
+             cv = self.F_contr[self.cell_types[nodeinds[0]],self.cell_types[nodeinds[1]]]
+        
+        else:
+            cv = self.F_contr  
+
+        #add contractile force when specified
         if force:
             # lognorm fitted to match behavior for d0min==0.8, d0max==2.0 and d0_0==1.0
-            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - self.F_contr) * dt * \
+            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - cv) * dt * \
                     0.69 * lognorm.pdf(self.d[nodeinds], .7, loc=.7, scale=.5)
 
         myd0 += self.c2 * (self.d0_0 - myd0) * dt + self.c3 * sqrt(dt) * (2 * self.randomsummand[nodeinds] - 1)
@@ -634,8 +646,9 @@ class NodeConfiguration:
         self.d0[nodeinds] = myd0
 
 
+
 class SubsConfiguration:
-    def __init__(self, num_cells, num_subs, d0_0, p_add, p_del, c1, c2, c3, F_contr, plasticity):
+    def __init__(self, num_cells, num_subs, d0_0, p_add, p_del, c1, c2, c3, F_contr, plasticity,cell_types=None):
         """
         Class containing data for all substrate nodes and substrate-tissue links. Is automatically initialized by class
         CellMech if CellMech.issubs is not False. Substrate nodes behave like tissue nodes, but can only form links
@@ -653,6 +666,7 @@ class SubsConfiguration:
         :param F_contr: target value for contractile force
         :param plasticity: Either None if Hookean, bend and twist constants are set individually per link, or tuple
             containing global values for the three constants in shape (k1, k2, k3) = (bend, twist, Hooke)
+        :param cell_types: [num_cells,] np.array of cell types (1 or 0)
         """
         # variables to store cell number and cell positions and angles
         self.N = num_cells
@@ -692,6 +706,7 @@ class SubsConfiguration:
         self.Flink = np.zeros((self.N, self.Nsubs, 3))       # Force from link on cell node
         self.Flink_tens = np.zeros((self.N, self.Nsubs))     # Tensile component of Flink
         self.F_contr = F_contr                               # target value for contractile force
+        self.cell_types = cell_types                         # [N,] array of cell types (1 or 0) or None
 
         self.p_add = p_add
         self.p_del = p_del
@@ -709,7 +724,7 @@ class SubsConfiguration:
         """
         Add a new tissue-substrate link
         :param ni: integer, index of the tissue node involved in the link
-        :param mi: integer, index of the substrate noed involved in the link
+        :param mi: integer, index of the substrate node involved in the link
         :param cellx: position of the tissue node
         :param cellphi: orientation of the tissue node
         :param t1: numpy array of shape (3), the vector tangential to the link at the surface of the substrate cell mi
@@ -921,14 +936,22 @@ class SubsConfiguration:
         included.
         :return:
         """
+        #extract d0 as a vector
         nodeinds = np.where(self.islink == True)
         myd0 = self.d0[nodeinds]
 
+        #add random purturbations
         subsrandom = npr.random(len(nodeinds[0]))
+
+        #form the contraction vector - defining the contraction force of each cell (i,j) pairing
+        if type(self.F_contr) == np.ndarray:
+            cv = self.F_contr[self.cell_types[nodeinds[0]]]
+        else:
+            cv = self.F_contr
 
         if force:
             # lognorm fitted to match behavior for d0min==0.8, d0max==2.0 and d0_0==1.0
-            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - self.F_contr) * dt *\
+            myd0 += self.c1 * ((self.Flink_tens[nodeinds]) - cv) * dt *\
                     0.69 * lognorm.pdf(self.d[nodeinds], .7, loc=.7, scale=.5)
 
         myd0 += self.c2 * (self.d0_0 - myd0) * dt + self.c3 * sqrt(dt) * (2 * subsrandom - 1)
@@ -1110,7 +1133,7 @@ class CellMech:
         # initialize instance of NodeConfiguration containing data on tissue cells
         self.mynodes = NodeConfiguration(num=num_cells, num_subs=num_subs, p_add=p_add, p_del=p_del,
                                          c1=c1, c2=c2, c3=c3, F_contr=F_contr,
-                                         dims=dims, d0_0=d0_0, isF0=isF0, isanchor=isanchor, plasticity=plasticity)
+                                         dims=dims, d0_0=d0_0, isF0=isF0, isanchor=isanchor, plasticity=plasticity,cell_types=self.cell_types)
 
         if self.issubs is True:
             # initialize instance of SubsConfiguration containing data on substrate cells, set functions to account for
@@ -1121,14 +1144,14 @@ class CellMech:
                 p_del_subs = p_del
             if subs_scale is False:
                 self.mysubs = SubsConfiguration(num_cells=num_cells, num_subs=num_subs, d0_0=d0_0,
-                                                c1=c1, c2=c2, c3=c3, F_contr=F_contr,
-                                                p_add=p_add_subs, p_del=p_del_subs, plasticity=plasticity)
+                                                c1=c1, c2=c2, c3=c3, F_contr=F_contr_subs,
+                                                p_add=p_add_subs, p_del=p_del_subs, plasticity=plasticity,cell_types=self.cell_types)
             else:
                 subsplasticity = (plasticity[0] / subs_scale, plasticity[1] / subs_scale, plasticity[2] / subs_scale)
                 self.mysubs = SubsConfiguration(num_cells=num_cells, num_subs=num_subs, d0_0=d0_0,
-                                                c1=c1, c2=c2, c3=c3, F_contr=F_contr,
+                                                c1=c1, c2=c2, c3=c3, F_contr=F_contr_subs,
                                                 p_add=p_add_subs, p_del=p_del_subs*subs_scale,
-                                                plasticity=subsplasticity)
+                                                plasticity=subsplasticity,cell_types=self.cell_types)
             self.mechEquilibrium = lambda: self.mechEquilibrium_withsubs()
             self.makesnap = lambda t: self.makesnap_withsubs(t)
             self.addLinkList = lambda: self.addLinkList_withsubs()
@@ -1147,8 +1170,8 @@ class CellMech:
             if p_del_subs is None:
                 p_del_subs = p_del
             self.mysubs = SubsConfiguration(num_cells=num_cells, num_subs=num_subs, d0_0=d0_0,
-                                            c1=c1, c2=c2, c3=c3, F_contr=F_contr,
-                                            p_add=p_add_subs, p_del=p_del_subs, plasticity=plasticity)
+                                            c1=c1, c2=c2, c3=c3, F_contr=F_contr_subs,
+                                            p_add=p_add_subs, p_del=p_del_subs, plasticity=plasticity,cell_types=self.cell_types)
             self.mechEquilibrium = lambda: self.mechEquilibrium_lonesome()
             self.makesnap = lambda t: self.makesnap_lonesome(t)
             self.addLinkList = lambda: self.addLinkList_lonesome()
@@ -1385,7 +1408,10 @@ class CellMech:
                 f = scipy.linalg.norm(self.mysubs.Flink[link[0], link[1]])
                 p = exp(f)
                 del_links.append(link)
-                del_probs.append(p * self.mysubs.p_del)
+                if type(self.mysubs.p_del) == np.ndarray:
+                    del_probs.append(p * self.mysubs.p_del[self.cell_types[link[0]]]) #link 0 is the cell link, link 1 is the subs link
+                else:
+                    del_probs.append(p * self.mysubs.p_del)
                 del_bools.append(True)  # is tissue-substrate link
         linklist = self.mynodes.getLinkList()
         linksum += len(linklist)
@@ -1397,7 +1423,10 @@ class CellMech:
             f = scipy.linalg.norm(self.mynodes.Flink[link[0], link[1]])
             p = exp(f)
             del_links.append(link)
-            del_probs.append(p * self.mynodes.p_del)
+            if type(self.mynodes.p_del) == np.ndarray:
+                 del_probs.append(p * self.mynodes.p_del[self.cell_types[link[0]],self.cell_types[link[1]]])
+            else:
+                del_probs.append(p * self.mynodes.p_del)
             del_bools.append(False)  # is tissue-tissue link
         return np.array([del_links, del_probs, del_bools])
 
@@ -1482,9 +1511,18 @@ class CellMech:
                 p = (1 - (d / self.d0max))
                 add_links.append((i, j))
                 if boo:
-                    add_probs.append(p * self.mysubs.p_add)
+                    if type(self.mysubs.p_add) == np.ndarray:   #two cell types
+                        add_probs.append(p * self.mysubs.p_add[self.cell_types[i]])
+                    else:
+                        add_probs.append(p * self.mysubs.p_add)
+                    
                 else:
-                    add_probs.append(p * self.mynodes.p_add)
+                    if type(self.mynodes.p_add) == np.ndarray:  #two cell types
+                        add_probs.append(p * self.mynodes.p_add[self.cell_types[i],self.cell_types[j]])
+                    else:
+                        add_probs.append(p * self.mynodes.p_add)
+
+                    
                 add_bools.append(boo)
         return np.array([add_links, add_probs, add_bools])
 
