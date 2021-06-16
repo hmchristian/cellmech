@@ -936,8 +936,84 @@ class SubsConfiguration:
         self.d0[nodeinds] = myd0
 
 
+
+class TwoCelltypePatch:
+    def __init__(self,num_cells,cell_fraction=np.array([.5,.5]), 
+                 p_add = np.array([[.1,.1],[.1,.1]]), p_del = np.array([[.1,.1],[.1,.1]]),F_contr = np.array([[.1,.1],[.1,.1]]),
+                 p_add_subs = np.array([.1,.2]), p_del_subs = np.array([.1,.2]),F_contr_subs=np.array([1,1])):
+        """
+        This class encapsulates the changes made to the CellMech model to perform a simulation on two
+        cell types with different mechanical properties. To make the changes implemented to the model 
+        explict, I've choosen to declare the explored variables here, and then to integrate those changes
+        into the cellmech model at the time of it's construction. Modification was made to the cellMech 
+        class to enable this, however it's interface was not broken and the class remains backwards compatable. 
+        any variable not explicitly declared in this class is assumed to be equal for the two cell types.
+
+        :param num_cells: integer, the number of tissue cells
+        :param cell_fraction: [2,] np.array containing the fraction of cell type A and B.
+
+        :param p_add:       [2x2]  np.array containing the probabilites of forming connections between each combination of cell type
+        :param p_del:       [2x2]  np.array containing the probabilites of removing connections between each combination of cell type
+        :param F_contr:     [2x2]  np.array containing the contraction strength for each cell type
+        
+        :param p_add_subs   [2,]  np.array containing the probabilities of forming connections between a cell and it's substrate
+        :param p_del_subs   [2,]  np.array containing the probabilities of removing connections between a cell and it's substrate
+        :param F_contr_subs [2,]  np.array containing the contraction strength between the substrate and each cell type
+        """
+        self.N = num_cells
+        self.cell_fraction = cell_fraction
+
+        self.p_add = p_add
+        self.p_del = p_del
+        self.F_contr = F_contr
+
+        self.p_add_subs = p_add_subs
+        self.p_del_subs = p_del_subs         
+        self.F_contr_subs = F_contr_subs
+
+        cell_types, cell_type_inds = self.set_cell_types(self.N,self.cell_fraction)
+        self.cell_types = cell_types           # [1xn] array of cell types 
+        self.cell_type_inds = cell_type_inds   # length 2 tuple of indecies of cell type 0 and 1
+    
+    def set_cell_types(self,N,cf):
+        """
+        inputs:
+            :param N: int number of cells
+            :param cf: [ncellTypes,] np.array of fraction of cells of each type (sum == 1)
+        """
+        #check that the probabilities are properly specified
+        if not np.isclose(sum(cf),1,rtol=.0001):
+            raise ValueError("the specified cell fraction array does not sum to 1")
+
+        #get as close as you can to integer fractions of the specified probabilities
+        Ns = []                                    # list to be populated with how many of each celltype we need
+        for i in range(len(cf)-1):
+            Ns.append(round(N * cf[i]))            # get as close as we can while still being an integer
+        Ns.append(N - sum(Ns))                     # handle the last probability to ensure sum(Ns) == N
+
+        #make the cell_types array
+        cell_types = [] ; i = 0
+        for cell_number in Ns:
+            for n in range(cell_number):
+                cell_types.append(i)
+            i += 1
+
+        #shuffle cell_types array
+        cell_types = np.array(cell_types)
+        np.random.shuffle(cell_types)                    # shuffle the node types in place!
+
+        #calculate cell_type_inds - a list of cell type indicies
+        cell_type_inds = []
+        for i in range(len(Ns)):
+            cell_type_inds.append(np.where(cell_types==i))
+
+        #return
+        return cell_types,cell_type_inds
+
+
+
 class CellMech:
-    def __init__(self, num_cells, num_subs=0, dt=0.01, nmax=300, qmin=0.001, d0_0=1., p_add=1., p_del=0.2, c1=0.05,
+    def __init__(self, num_cells,two_cell_types = None, num_subs=0, dt=0.01, nmax=300, qmin=0.001, d0_0=1., p_add=1., p_del=0.2, c1=0.05,
                  c2=0.1, c3=0.2, subs_scale=False, p_add_subs=None, p_del_subs=None, chkx=False, d0max=2., dims=3,
                  F_contr=1., isF0=False, isanchor=False, issubs=False, force_contr=True, plasticity=(1., 1., 1.5)):
         """
@@ -981,8 +1057,27 @@ class CellMech:
         :param plasticity: Either None if Hookean, bend and twist constants are set individually per link, or tuple
             containing global values for the three constants in shape (k1, k2, k3) = (bend, twist, Hooke)
         """
+        #if two cell types simulation present, unpack vars and override default args
+        tct = two_cell_types
+        if tct != None:
+            p_add = tct.p_add
+            p_del = tct.p_del
+            F_contr = tct.F_contr  
+
+            p_add_subs = tct.p_add_subs
+            p_del_subs = tct.p_del_subs
+            F_contr_subs = tct.F_contr_subs 
+
+            self.cell_types = tct.cell_types
+            self.cell_type_inds = tct.cell_type_inds 
+        else:
+            self.cell_types = None
+            F_contr_subs = F_contr
+
+        #set dims and if substrate in simulation
         self.dims = dims
         self.issubs = issubs
+
         # variables to store cell number and cell positions and angles
         self.N = num_cells
         self.N2 = 2 * self.N
