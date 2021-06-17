@@ -117,16 +117,18 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     # unpack Simdata and SubsSimdata
     Configs, Links, nodeForces, linkForces, ts = Simdata
     
-    # "fake" / stand-in indecies for when we actually encode cell types.
-    # nCells = len(Configs[0])
-    # inds = np.arange(nCells)
-    # np.random.shuffle(inds)
-    # cid0 = inds[0:int(len(inds)/2)] ; cid1 = inds[int(len(inds)/2):]
-    # cellTypes = [cid0,cid1]
+    #fake cell types data
+    if cell_types == None:
+        nCells = len(Configs[0])
+        inds = np.arange(nCells)
+        np.random.shuffle(inds)
+        cid0 = inds[0:int(len(inds)/2)] ; cid1 = inds[int(len(inds)/2):]
+        cellTypes = [cid0,cid1]
     
-    #extract the indicies of the cell_types from the cell_type object
-    cellTypes = cell_types.cell_type_inds 
-    
+    else:
+        #extract the indicies of the cell_types from the cell_type object
+        cellTypes = cell_types.cell_type_inds 
+        
 
     if SubsSimdata is None:
         Subs = None
