@@ -10,7 +10,7 @@ np.load.__defaults__=(None, True, True, 'ASCII')
 
 
 def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0),
-               figsize=(1000, 1000), cmap='viridis', vmaxlinks=5, vmaxcells=5, cbar=False, upto=-1):
+               figsize=(1000, 1000), cmap='viridis', vmaxlinks=5, vmaxcells=5, cbar=False, upto=-1,fiji=False):
     """
 
     :param c: numpy array of shape (ncells, 3) containing positions of cells
@@ -28,6 +28,7 @@ def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), f
     :param vmaxlinks: maximum value of link forces for tuning of color-scale
     :param vmaxcells: maximum value of node forces for tuning of color-scale
     :param upto: index of last tissue cell when concatenating tissue and substrate cells
+    :param fiji: bool, if true, minimalist output
     :return: animation data
     """
     #make fig
@@ -42,23 +43,36 @@ def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), f
     rxl, ryl, rzl = (c[l[..., 1]] - c[l[..., 0]]).T  # extract x, y and z components of vectors describing links
     fc = scipy.linalg.norm(nF, axis=1)               # get absolute value of force on nodes
 
-    # initialize cell visualization
-    cid0 = cellTypes[0]
-    cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], fc[cid0], scale_factor=1, opacity=0.5, resolution=16,
-                          scale_mode='none', vmin=0., colormap='viridis', vmax=vmaxcells)
-    
-    cid1 = cellTypes[1]
-    cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], fc[cid1], scale_factor=1, opacity=0.5, resolution=16,
-                          scale_mode='none', vmin=0., colormap='Oranges', vmax=vmaxcells)
-
-
+    # initialize cell visualization with colors which depend on force
+    if not fiji:
+        cid0 = cellTypes[0]
+        cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], fc[cid0], scale_factor=1, opacity=0.5, resolution=16,
+                            scale_mode='none', vmin=0., colormap='viridis', vmax=vmaxcells)
         
-    # initialize link visualization
-    links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, scalars=fl, mode='2ddash', line_width=4., scale_mode='vector',
-                          scale_factor=1, colormap=cmap, vmin=0., vmax=vmaxlinks)
-    links.glyph.color_mode = "color_by_scalar"
-    if cbar:
-        mlab.scalarbar(links, nb_labels=2, title='Force on link')
+        cid1 = cellTypes[1]
+        cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], fc[cid1], scale_factor=1, opacity=0.5, resolution=16,
+                            scale_mode='none', vmin=0., colormap='Oranges', vmax=vmaxcells)
+            
+        # initialize link visualization
+        links = mlab.quiver3d(xl, yl, zl, rxl, ryl, rzl, scalars=fl, mode='2ddash', line_width=4., scale_mode='vector',
+                            scale_factor=1, colormap=cmap, vmin=0., vmax=vmaxlinks)
+        links.glyph.color_mode = "color_by_scalar"
+        if cbar:
+            mlab.scalarbar(links, nb_labels=2, title='Force on link')
+    
+    # initialize visualization, with simple and distinct colors that will facilitate analysis
+    elif fiji:
+        cid0 = cellTypes[0]
+        cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], color = (1,0,0), scale_factor=1, opacity=0.5, resolution=16,
+                            scale_mode='none', vmin=0., colormap='viridis', vmax=vmaxcells)
+        
+        cid1 = cellTypes[1]
+        cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], color = (0,1,0), scale_factor=1, opacity=0.5, resolution=16,
+                            scale_mode='none', vmin=0., colormap='Oranges', vmax=vmaxcells)
+        
+        #dummy link
+        links = None        
+
     return cells0, cells1, links
 
 
@@ -82,7 +96,7 @@ def pack(A, B):
 @mlab.animate(delay=70)
 def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/", recordname="ani",
                    figureindex=0, bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), figsize=(1000, 1000),
-                   cmap='viridis', cbar=False, showsubs=False,cell_types=None):
+                   cmap='viridis', cbar=False, showsubs=False,cell_types=None,fiji=True):
     """
     Create animation of simulation results previously created with cell.py
     :param Simdata: Tuple containing items:
@@ -112,6 +126,7 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     :param cbar: color bar
     :param showsubs: boolean, whether or not to explicitly visualize substrate cells
     :param cell_types: TwoCelltypePatch object, containing definition which cell is which type
+    :param fiji: boolean, indicating if output should be formatted in a minimalist way for analysis in fiji
     :return:
     """
     # unpack Simdata and SubsSimdata
@@ -181,7 +196,7 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
     # show first timestep of animation
     cells0, cells1, links = initconfig(Configs[0], Links[0], nodeForces[0], linkForces[0],
                                        cellTypes, fig, cmap=cmap, cbar=cbar,vmaxcells=vmaxcells, 
-                                       vmaxlinks=vmaxlinks, upto=upto)
+                                       vmaxlinks=vmaxlinks, upto=upto,fiji=fiji)
 
     text = mlab.title('0.0', height=.9)  # show current time
 
@@ -209,10 +224,15 @@ def animateconfigs(Simdata, SubsSimdata=None, record=False, recorddir="./movie/"
 
             # update data
             cid0 , cid1 = cellTypes[0] , cellTypes[1]
-            cells0.mlab_source.set(x=x[cid0], y=y[cid0], z=z[cid0], scalars=fc[cid0])
-            cells1.mlab_source.set(x=x[cid1], y=y[cid1], z=z[cid1], scalars=fc[cid1])
-            links.mlab_source.reset(x=xl, y=yl, z=zl, u=rxl, v=ryl, w=rzl, scalars=fl)
             text.set(text='{}'.format(round(t, 2)))
+            if not fiji:
+                cells0.mlab_source.set(x=x[cid0], y=y[cid0], z=z[cid0], scalars=fc[cid0])
+                cells1.mlab_source.set(x=x[cid1], y=y[cid1], z=z[cid1], scalars=fc[cid1])
+                links.mlab_source.reset(x=xl, y=yl, z=zl, u=rxl, v=ryl, w=rzl, scalars=fl)
+
+            if fiji:
+                cells0.mlab_source.set(x=x[cid0], y=y[cid0], z=z[cid0])
+                cells1.mlab_source.set(x=x[cid1], y=y[cid1], z=z[cid1])
 
             if record:
                 tstring = str(i).zfill(padding)
