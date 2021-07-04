@@ -63,11 +63,11 @@ def initconfig(c, l, nF, fl,cellTypes,figure,figureindex=0, bgcolor=(1, 1, 1), f
     # initialize visualization, with simple and distinct colors that will facilitate analysis
     elif fiji:
         cid0 = cellTypes[0]
-        cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], color = (1,0,0), scale_factor=1, opacity=0.5, resolution=16,
+        cells0 = mlab.points3d(x[cid0], y[cid0], z[cid0], color = (1,0,0), scale_factor=1, opacity=1.0, resolution=16,
                             scale_mode='none', vmin=0., colormap='viridis', vmax=vmaxcells)
         
         cid1 = cellTypes[1]
-        cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], color = (0,1,0), scale_factor=1, opacity=0.5, resolution=16,
+        cells1 = mlab.points3d(x[cid1], y[cid1], z[cid1], color = (0,1,0), scale_factor=1, opacity=1.0, resolution=16,
                             scale_mode='none', vmin=0., colormap='Oranges', vmax=vmaxcells)
         
         #dummy link

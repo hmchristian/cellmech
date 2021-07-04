@@ -1,7 +1,7 @@
 from cell import *
 from animate import *
 
-npr.seed(seed=0)
+#npr.seed(seed=0)
 
 
 def generatePoint(L):
@@ -68,6 +68,7 @@ if __name__ == '__main__':
     F_contr_subs = np.array([.1,.2])           # force of contraction to substrate
     
     tct = TwoCelltypePatch(N,cell_fraction,p_add,p_del,F_contr,F_contr_subs=F_contr_subs)
+    tct.save(savedir)
 
 
     #configure CellMech object
@@ -122,5 +123,5 @@ if __name__ == '__main__':
     dumpdata, simdata, subssimdata = fetchdata(savedir)
 
     # animate results
-    animateconfigs(simdata, subssimdata, showsubs=False,cell_types = tct)
+    animateconfigs(simdata, subssimdata, showsubs=False,cell_types = tct,fiji=False)
     mlab.show()

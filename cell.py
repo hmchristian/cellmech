@@ -1032,6 +1032,26 @@ class TwoCelltypePatch:
 
         #return
         return cell_types,cell_type_inds
+    
+    def save(self,dir):
+        """
+        save cell types and cell type inds, which are required for plotting
+        input:
+            dir - relative path to directory where object should be saved (i.e. name of folder)
+        """
+        #save all data vars from the class into 
+        np.save("./" + dir + "/tct.npy", self.__dict__)
+        
+    
+    def load(self,dir):
+        """
+        restore tct object state based on a directory where it's data was stored
+         input:
+            dir - relative path to directory where object should be saved (i.e. name of folder)
+        """
+        d = np.load("./" + dir + "/tct.npy")
+        d = d.tolist()
+        self.__dict__ = d     #overwrite all data objects w/ objects from disk
 
 
 
